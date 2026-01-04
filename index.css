@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;600&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap');
+
+/* 注意: CDN版Tailwindを使用するため、@tailwind base/components/utilities は不要です */
+
+/* 基本設定 */
+html, body {
+    height: 100%;
+    height: 100dvh; 
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #020617;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    color: #e2e8f0;
+    overscroll-behavior-y: none;
+    position: fixed; 
+    width: 100%;
+}
+
+#root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 480px;
+    height: 100%;
+    background-color: #0f172a;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+.custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+.scanline {
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+    background-size: 100% 4px;
+    pointer-events: none;
+    position: absolute; inset: 0; z-index: 50;
+}
+
+.hp-bar-transition { transition: width 0.5s ease-out, background-color 0.3s; }
+.text-shadow { text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+.text-outline { text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+.text-stat { font-family: 'Zen Kaku Gothic New', sans-serif; font-weight: 900; letter-spacing: 0.05em; }
+.font-teko { font-family: 'Teko', sans-serif; }
+
+@keyframes damage-shake { 0% { transform: translate(0, 0); } 25% { transform: translate(-5px, 0); } 50% { transform: translate(5px, 0); } 75% { transform: translate(-5px, 0); } 100% { transform: translate(0, 0); } }
+.anim-shake { animation: damage-shake 0.3s ease-in-out; }
+
+@keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.anim-fade-in { animation: fade-in-up 0.3s ease-out forwards; }
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.loading-spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #3b82f6; animation: spin 1s ease infinite; }
+
+.modal-overlay { background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px); }
+.opacity-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(0.5); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }

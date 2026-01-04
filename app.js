@@ -1,0 +1,461 @@
+const { useState, useEffect } = React;
+const dbMonsters = window.dbMonsters;
+const dbMoves = window.dbMoves;
+const { Modal, OnlineLobby, Encyclopedia, TeamBuilder, MemberSelection, BattleEngine, optimizeEnemyLead } = window;
+
+const App = () => {
+     const [view, setView] = useState('loading');
+     const loading = false;
+     const error = null;
+
+     const [myParty, setMyParty] = useState([]);
+     const [enemyParty, setEnemyParty] = useState([]);
+     const [showTutorial, setShowTutorial] = useState(false);
+
+     const [showDifficultySelect, setShowDifficultySelect] = useState(false);
+     const [difficulty, setDifficulty] = useState('normal');
+
+     const [initialMyField, setInitialMyField] = useState(null);
+     const [initialEnemyField, setInitialEnemyField] = useState(null);
+     const [savedTeams, setSavedTeams] = useState([[], [], []]);
+     const [currentTeamIndex, setCurrentTeamIndex] = useState(0);
+     const [onlineData, setOnlineData] = useState({ isOnline: false, roomId: null, role: null });
+
+     useEffect(() => {
+         window.scrollTo(0, 0);
+     }, [view]);
+
+     const [debugTapCount, setDebugTapCount] = useState(0);
+
+    const createMonsterInstance = (id) => { const data = dbMonsters.find(m => m.id == id); if(!data) return null; return { ...data, uid: Math.random().toString(36).substr(2, 9), maxHp: data.hp, currentHp: data.hp, buffs: { atk: 0, def: 0, spd: 0 }, selectedMoves: data.moves.slice(0, 3), isDamaged: false, isProtected: false, protectStreak: 0, lastTakenDamage: 0, lastTakenDamageSource: null }; };
+
+    // 1. 初心者向け
+    const createBeginnerParty = () => {
+        if(!dbMonsters || dbMonsters.length === 0) return [];
+        // 修正: ID 999(ボス)を除外 かつ ID 24未満(クラシック)のみに限定
+        const candidates = dbMonsters.filter(m => m.id != 999 && m.id < 24);
+        const shuffled = [...candidates].sort(() => 0.5 - Math.random()).slice(0, 4);
+        return shuffled.map(data => { const allMoves = data.moves || []; let attackMoves = allMoves.filter(m => { const md = dbMoves[m]; return md && md.category !== 'status' && m !== 'ラッシュ'; }); let selected = attackMoves.slice(0, 3); if (selected.length < 3) { if (allMoves.includes('ラッシュ') && !selected.includes('ラッシュ')) selected.push('ラッシュ'); const others = allMoves.filter(m => !selected.includes(m) && dbMoves[m]?.category === 'physical'); selected = [...selected, ...others].slice(0, 3); if (selected.length < 3) { const statusMoves = allMoves.filter(m => !selected.includes(m)); selected = [...selected, ...statusMoves].slice(0, 3); } } return { ...data, uid: Math.random().toString(36).substr(2, 9), maxHp: data.hp, currentHp: data.hp, buffs: { atk: 0, def: 0, spd: 0 }, selectedMoves: selected, isDamaged: false, isProtected: false, protectStreak: 0, lastTakenDamage: 0, lastTakenDamageSource: null }; });
+    };
+
+    // 2. ELITE向け (LV.2)
+    const createEliteParty = () => {
+        if(!dbMonsters || dbMonsters.length === 0) return [];
+
+        const ELITE_TEAMS = [
+            {
+                name: "Speed Blitz",
+                desc: "神速アグロ",
+                members: [
+                    { id: 6,  moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] },
+                    { id: 19, moves: ['キラーダイブ', 'アクアダッシュ', 'プロテクション'] },
+                    { id: 1,  moves: ['フレイムバースト', 'ヒートウェーブ', 'プロテクション'] },
+                    { id: 13, moves: ['アクアストリーム', 'アイスホーン', 'プロテクション'] }
+                ]
+            },
+            {
+                name: "Iron Wall",
+                desc: "重戦車タンク",
+                members: [
+                    { id: 3,  moves: ['アクアストリーム', 'マッドウェーブ', 'プロテクション'] },
+                    { id: 11, moves: ['フレイムバースト', 'ヒートウェーブ', 'プロテクション'] },
+                    { id: 5,  moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] },
+                    { id: 14, moves: ['アクアストリーム', 'ハーフカット', 'プロテクション'] }
+                ]
+            },
+            {
+                name: "Distortion Heavy",
+                desc: "空間歪曲・重火力",
+                members: [
+                    { id: 10, moves: ['ディストーション', 'ダークインパクト', 'プロテクション'] },
+                    { id: 9,  moves: ['ダークミスト', 'カースドノヴァ', 'プロテクション'] },
+                    { id: 15, moves: ['グラスファング', 'カッターウィンド', 'プロテクション'] },
+                    { id: 17, moves: ['ボルトクロー', 'フラッシュバン', 'プロテクション'] }
+                ]
+            },
+            // ▼ 追加チーム1: 攻撃技オンリーの水雷物理 (Storm Front)
+            {
+                name: "Storm Front",
+                desc: "轟雷・激流",
+                members: [
+                    { id: 13, moves: ['アクアストリーム', 'アイスホーン', 'プロテクション'] },
+                    { id: 17, moves: ['ボルトクロー', 'フラッシュバン', 'プロテクション'] },
+                    { id: 19, moves: ['キラーダイブ', 'アクアダッシュ', 'プロテクション'] },
+                    { id: 4,  moves: ['アクアストリーム', 'マッドウェーブ', 'プロテクション'] }
+                ]
+            },
+            // ▼ 追加チーム2: 攻撃技オンリーの炎草物理 (Crimson Fang)
+            {
+                name: "Crimson Fang",
+                desc: "紅蓮の牙",
+                members: [
+                    { id: 15, moves: ['グラスファング', 'カッターウィンド', 'プロテクション'] },
+                    { id: 23, moves: ['ヘルブレード', 'ヒートウェーブ', 'プロテクション'] },
+                    { id: 12, moves: ['フレイムバースト', 'ラッシュ', 'プロテクション'] },
+                    { id: 5,  moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] }
+                ]
+            }
+        ];
+
+        const teamPlan = ELITE_TEAMS[Math.floor(Math.random() * ELITE_TEAMS.length)];
+
+        return teamPlan.members.map(memberDef => {
+            const data = dbMonsters.find(m => m.id === memberDef.id);
+            if (!data) return null;
+
+            return {
+                ...data,
+                uid: Math.random().toString(36).substr(2, 9),
+                maxHp: data.hp, currentHp: data.hp, buffs: { atk: 0, def: 0, spd: 0 },
+                selectedMoves: memberDef.moves,
+                isDamaged: false, isProtected: false, protectStreak: 0, lastTakenDamage: 0, lastTakenDamageSource: null
+            };
+        }).filter(m => m !== null);
+    };
+
+    // 3. MASTER向け (LV.3)
+    const createMasterParty = () => {
+        if(!dbMonsters || dbMonsters.length === 0) return [];
+
+        const MASTER_TEAMS = [
+            {
+                name: "Aggro Rush",
+                members: [
+                    { id: 19, moves: ['キラーダイブ', 'プロテクション', 'パワーチャージ'] },
+                    { id: 1,  moves: ['フレイムバースト', 'プロテクション', 'アクセルステップ'] },
+                    { id: 7,  moves: ['ホーリーレイ', 'フラッシュバン', 'プロテクション'] },
+                    { id: 13, moves: ['アクアストリーム', 'アイスホーン', 'プロテクション'] }
+                ]
+            },
+            {
+                name: "Synergy Blitz",
+                members: [
+                    { id: 6,  moves: ['アクセルステップ', 'ヒールライト', 'ソーンウィップ'] },
+                    { id: 13, moves: ['アイスホーン', 'アクセルステップ', 'ドレインホーン'] },
+                    { id: 19, moves: ['キラーダイブ', 'パワーチャージ', 'プロテクション'] },
+                    { id: 23, moves: ['ヘルブレード', 'ヒートウェーブ', 'プロテクション'] }
+                ]
+            },
+            {
+                name: "Distortion World",
+                members: [
+                    { id: 10, moves: ['ダークインパクト', 'ディストーション', 'プロテクション'] },
+                    { id: 17, moves: ['プロテクション', 'ボルトクロー', 'パワーチャージ'] },
+                    { id: 3,  moves: ['アクアストリーム', 'アイアンシェル', 'プロテクション'] },
+                    { id: 9,  moves: ['ダークミスト', 'カースドノヴァ', 'プロテクション'] }
+                ]
+            },
+            // ▼ 追加チーム1: 光属性中心＋加速 (Photon Saber)
+            {
+                name: "Photon Saber",
+                members: [
+                    { id: 24, moves: ['ホーリーレイ', 'アイスホーン', 'アクセルステップ'] },
+                    { id: 7,  moves: ['ホーリーレイ', '光速の爪', 'パワーチャージ'] },
+                    { id: 16, moves: ['ハーフカット', 'ソーンウィップ', 'アクセルステップ'] },
+                    { id: 18, moves: ['アルティメットレイ', 'ラッシュ', 'プロテクション'] }
+                ]
+            },
+            // ▼ 追加チーム2: 異次元の怪力 (Dimension Power)
+            {
+                name: "Dimension Power",
+                members: [
+                    { id: 10, moves: ['ディストーション', 'ダークインパクト', 'プロテクション'] },
+                    { id: 11, moves: ['マグマブロック', 'パワーチャージ', 'プロテクション'] },
+                    { id: 20, moves: ['ドレインホーン', 'アイアンシェル', 'プロテクション'] },
+                    { id: 15, moves: ['グラスファング', 'パワーチャージ', 'プロテクション'] }
+                ]
+            }
+        ];
+
+        const teamPlan = MASTER_TEAMS[Math.floor(Math.random() * MASTER_TEAMS.length)];
+
+        return teamPlan.members.map(memberDef => {
+            const data = dbMonsters.find(m => m.id === memberDef.id);
+            if (!data) return null;
+
+            return {
+                ...data,
+                uid: Math.random().toString(36).substr(2, 9),
+                maxHp: data.hp, currentHp: data.hp, buffs: { atk: 0, def: 0, spd: 0 },
+                selectedMoves: memberDef.moves,
+                isDamaged: false, isProtected: false, protectStreak: 0, lastTakenDamage: 0, lastTakenDamageSource: null
+            };
+        }).filter(m => m !== null);
+    };
+
+    const createEnemyParty = (difficulty) => {
+        if (difficulty === 'master') {
+            return createMasterParty();
+        } else if (difficulty === 'elite') {
+            return createEliteParty();
+        } else {
+            return createBeginnerParty();
+        }
+    };
+
+    useEffect(() => {
+        if (!loading && dbMonsters.length > 0) {
+            const loadTeams = () => {
+                const saved = localStorage.getItem('versus_monsters_teams');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if(parsed.length === 3) {
+                            return parsed.map((team, tIdx) => {
+                                const hasVersus = team.some(m => m.id === 999);
+                                if (hasVersus) return null;
+                                return team.map(mon => {
+                                    const latestData = dbMonsters.find(dbMon => dbMon.id == mon.id);
+                                    if (!latestData) return mon;
+                                    const validMoves = mon.selectedMoves
+                                        .map(m => m === 'ヒートウェイブ' ? 'ヒートウェーブ' : m)
+                                        .filter(m => dbMoves[m] && latestData.moves.includes(m));
+                                    const safeMoves = validMoves.length > 0 ? validMoves : latestData.moves.slice(0, 3);
+                                    return {
+                                        ...mon,
+                                        name: latestData.name,
+                                        img: latestData.img,
+                                        maxHp: latestData.hp,
+                                        atk: latestData.atk,
+                                        def: latestData.def,
+                                        spd: latestData.spd,
+                                        selectedMoves: safeMoves,
+                                        protectStreak: 0,
+                                        lastTakenDamage: 0,
+                                        buffs: { atk: 0, def: 0, spd: 0 }
+                                    };
+                                });
+                            });
+                        }
+                    } catch(e) {}
+                }
+                const t1 = [1, 3, 5, 7].map(createMonsterInstance).filter(m => m !== null);
+                const t2 = [2, 4, 9, 10].map(createMonsterInstance).filter(m => m !== null);
+                const t3 = [1, 2, 8, 9].map(createMonsterInstance).filter(m => m !== null);
+                return [t1, t2, t3];
+            };
+
+            const loaded = loadTeams();
+            const t1Def = [1, 3, 5, 7].map(createMonsterInstance).filter(m => m !== null);
+            const t2Def = [2, 4, 9, 10].map(createMonsterInstance).filter(m => m !== null);
+            const t3Def = [1, 2, 8, 9].map(createMonsterInstance).filter(m => m !== null);
+            const defaults = [t1Def, t2Def, t3Def];
+
+            const finalTeams = loaded.map((team, i) => team || defaults[i]);
+
+            setSavedTeams(finalTeams);
+            setMyParty(finalTeams[0]);
+            setEnemyParty(createBeginnerParty());
+            setView('title');
+        }
+    }, [loading, dbMonsters, dbMoves]);
+
+    const updateTeam = (index, newParty) => { const newTeams = [...savedTeams]; newTeams[index] = newParty; setSavedTeams(newTeams); setMyParty(newParty); localStorage.setItem('versus_monsters_teams', JSON.stringify(newTeams)); };
+
+    const handleDifficultySelect = (selectedDiff) => {
+        setDifficulty(selectedDiff);
+        const enemy = createEnemyParty(selectedDiff);
+        setEnemyParty(enemy);
+        setShowDifficultySelect(false);
+        setOnlineData({ isOnline: false, roomId: null, role: null });
+        setView('selection');
+    };
+
+    const handleOnlineStart = ({ roomId, role }) => { setOnlineData({ isOnline: true, roomId, role }); setView('selection'); };
+
+    const handleBattleStart = (myF, enemyF, onlineMyP, onlineEnP) => {
+        setInitialMyField(myF);
+        setInitialEnemyField(enemyF);
+        if (onlineMyP) setMyParty(onlineMyP);
+        if (onlineEnP) setEnemyParty(onlineEnP);
+        setView('battle');
+    };
+
+    const handleVersionTap = () => {
+        const nextCount = debugTapCount + 1;
+        setDebugTapCount(nextCount);
+        if (nextCount === 5) {
+            let versusData = dbMonsters.find(m => m.id === 999);
+            if (!versusData) { alert("エラー: ID:999 (ヴァーサス) のデータがFirestoreに見つかりません。"); setDebugTapCount(0); return; }
+            const versusInstance = { ...versusData, uid: Math.random().toString(36).substr(2, 9), maxHp: versusData.hp, currentHp: versusData.hp, buffs: { atk: 0, def: 0, spd: 0 }, selectedMoves: versusData.moves.slice(0, 3), isDamaged: false, isProtected: false, protectStreak: 0, lastTakenDamage: 0, lastTakenDamageSource: null };
+            const newTeams = [...savedTeams];
+            const currentTeam3 = newTeams[2] || [];
+            const otherMembers = currentTeam3.filter(m => m.id !== 999);
+            const updatedTeam3 = [versusInstance, ...otherMembers].slice(0, 4);
+            newTeams[2] = updatedTeam3;
+            setSavedTeams(newTeams);
+            localStorage.setItem('versus_monsters_teams', JSON.stringify(newTeams));
+            alert("⚠️ ADMIN MODE ACTIVATED ⚠️\nTEAM 3 の先頭に ヴァーサス(GENESIS) を追加しました。");
+            setDebugTapCount(0);
+        }
+    };
+
+    if (loading) return <div className="app-container flex items-center justify-center bg-slate-900 text-white flex-col gap-4"><div className="loading-spinner"></div><div className="font-teko tracking-widest">LOADING DATA...</div></div>;
+    if (error) return <div className="app-container flex items-center justify-center text-red-500">Error: {error.message}</div>;
+
+    return (
+        <div className="app-container">
+            <div className="absolute inset-0 scanline z-50 pointer-events-none"></div>
+{showTutorial && (
+                <Modal title="SYSTEM GUIDE: ADVANCED" onClose={() => setShowTutorial(false)}>
+                    <div className="space-y-6 font-zen pr-2">
+
+                        {/* 1. イントロダクション */}
+                        <div className="border-l-4 border-blue-500 pl-3">
+                            <h4 className="font-bold text-blue-400 text-lg mb-1 font-teko tracking-wider">01. INTRODUCTION</h4>
+                            <p className="text-xs text-gray-300 leading-relaxed">
+                                電脳空間「VMO アリーナ」へようこそ。<br/>
+                                ここは戦うために創造されたモンスターを使役する戦術シミュレーターです。<br/>
+                                4体のチームから2体を選出し、相手を全滅させれば勝利となります。
+                            </p>
+                        </div>
+
+                        {/* 2. ダメージ計算式 */}
+                        <div className="border-l-4 border-red-500 pl-3">
+                            <h4 className="font-bold text-red-400 text-lg mb-1 font-teko tracking-wider">02. DAMAGE FORMULA</h4>
+                            <div className="bg-slate-800 p-2 rounded border border-slate-700 font-mono text-[10px] text-gray-300 mb-2">
+                                Damage = floor( (ATK × Power ÷ DEF ÷ 2) × TypeMod × Random(0.9~1.0) )
+                            </div>
+                            <ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
+                                <li><span className="text-white">ATK/DEF</span>: バフ補正後の数値を使用</li>
+                                <li><span className="text-white">TypeMod</span>: 属性相性倍率 (下記参照)</li>
+                                <li><span className="text-white">Random</span>: 最終ダメージは90%〜100%の間で変動</li>
+                            </ul>
+                        </div>
+
+                        {/* 3. 属性相性 (TYPE CHART) */}
+                        <div className="border-l-4 border-yellow-500 pl-3">
+                            <h4 className="font-bold text-yellow-400 text-lg mb-1 font-teko tracking-wider">03. TYPE CHART</h4>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="bg-slate-800 p-2 rounded">
+                                    <span className="text-red-400 font-bold">WEAKNESS (x1.5 Damage)</span>
+                                    <ul className="mt-1 space-y-0.5 text-gray-300">
+                                        <li>🔥 <span className="text-gray-500">→</span> 🌿 (炎は草に強い)</li>
+                                        <li>🌿 <span className="text-gray-500">→</span> 💧 (草は水に強い)</li>
+                                        <li>💧 <span className="text-gray-500">→</span> 🔥 (水は炎に強い)</li>
+                                        <li>✨ <span className="text-gray-500">⇄</span> 🟣 (光と闇は互いに弱点)</li>
+                                    </ul>
+                                </div>
+                                <div className="bg-slate-800 p-2 rounded">
+                                    <span className="text-blue-400 font-bold">RESISTANCE (x0.5 Damage)</span>
+                                    <p className="mt-1 text-gray-300 leading-tight">
+                                        攻撃側と同じ属性、または耐性属性で受けるとダメージ半減。<br/>
+                                        <span className="text-[10px] text-gray-500 mt-1 block">例: 炎技を炎モンスターが受けると0.5倍</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4. 行動順と優先度 */}
+                        <div className="border-l-4 border-purple-500 pl-3">
+                            <h4 className="font-bold text-purple-400 text-lg mb-1 font-teko tracking-wider">04. SPEED & PRIORITY</h4>
+                            <p className="text-xs text-gray-300 mb-2">行動順は以下の優先順位で決定されます。</p>
+                            <ol className="list-decimal list-inside text-xs text-gray-300 space-y-1 bg-slate-800 p-2 rounded">
+                                <li><span className="text-yellow-400">技の優先度 (Priority)</span> <span className="text-gray-500 text-[10px]">例：プロテクション(+4) ＞ 先制技(+1) ＞ 通常(0)</span></li>
+                                <li><span className="text-green-400">SPDステータス</span> <span className="text-gray-500 text-[10px]">バフ/デバフ補正を含む実数値</span></li>
+                                <li><span className="text-gray-400">乱数</span> <span className="text-gray-500 text-[10px]">同速の場合はランダム</span></li>
+                            </ol>
+                            <div className="mt-2 text-[10px] text-purple-300 border border-purple-500/30 bg-purple-900/20 p-1.5 rounded">
+                                <strong>⚠️ FIELD EFFECT: DISTORTION</strong><br/>
+                                「ディストーション」発動中(5ターン)は、SPD順序が逆転します。<br/>
+                                (遅いモンスターが先制。ただし技の優先度は維持されます)
+                            </div>
+                        </div>
+
+                        {/* 5. 能力ランク補正 */}
+                        <div className="border-l-4 border-green-500 pl-3">
+                            <h4 className="font-bold text-green-400 text-lg mb-1 font-teko tracking-wider">05. STAT BUFFS</h4>
+                            <p className="text-xs text-gray-300 mb-2">ステータス変化は最大±2段階まで蓄積します。</p>
+                            <div className="flex justify-between text-center bg-slate-800 rounded p-2 text-xs">
+                                <div>
+                                    <div className="text-red-400 font-bold">-2</div>
+                                    <div className="text-gray-400">x0.5</div>
+                                </div>
+                                <div>
+                                    <div className="text-red-300 font-bold">-1</div>
+                                    <div className="text-gray-400">x0.75</div>
+                                </div>
+                                <div>
+                                    <div className="text-white font-bold">0</div>
+                                    <div className="text-gray-400">x1.0</div>
+                                </div>
+                                <div>
+                                    <div className="text-green-300 font-bold">+1</div>
+                                    <div className="text-gray-400">x1.5</div>
+                                </div>
+                                <div>
+                                    <div className="text-green-400 font-bold">+2</div>
+                                    <div className="text-gray-400">x2.0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </Modal>
+            )}
+            {view === 'title' && (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative z-10 px-6">
+                    <h1 className="text-7xl font-teko font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-br from-red-500 via-white to-blue-500 text-shadow mb-2 text-center leading-none">VERSUS<br/>MONSTERS</h1>
+                    <p className="text-gray-500 mb-8 font-teko tracking-[0.2em] text-sm">TACTICAL BATTLE SIMULATION</p>
+
+                    <div className="w-full max-w-xs space-y-2.5">
+
+
+                        <button onClick={() => setShowDifficultySelect(true)} className="w-full py-3 bg-gradient-to-r from-blue-700 to-blue-600 rounded shadow-lg shadow-blue-500/20 font-bold hover:scale-105 transition border-t border-blue-400 tracking-wider">SINGLE BATTLE</button>
+                        <button onClick={() => setView('online_lobby')} className="w-full py-3 bg-gradient-to-r from-purple-700 to-purple-600 rounded shadow-lg shadow-purple-500/20 font-bold hover:scale-105 transition border-t border-purple-400 tracking-wider">ONLINE BATTLE</button>
+                        <button onClick={() => setView('team')} className="w-full py-3 bg-gray-800 rounded border border-gray-700 hover:bg-gray-700 transition font-bold text-gray-300 tracking-wider">TEAM EDIT</button>
+                        <button onClick={() => setView('encyclopedia')} className="w-full py-3 bg-slate-800 rounded border border-slate-600 hover:bg-slate-700 transition font-bold text-gray-300 tracking-wider">MONSTER DATA</button>
+                        <button onClick={() => setShowTutorial(true)} className="w-full py-3 bg-gray-800 rounded border border-gray-700 hover:bg-gray-700 transition font-bold text-gray-300 tracking-wider">TUTORIAL</button>
+                    </div>
+
+                    <div onClick={handleVersionTap} className="absolute bottom-4 text-xs text-gray-600 font-teko cursor-pointer select-none active:text-gray-400">VER 4.1.0 - Full Unlock</div>
+                </div>
+            )}
+
+            {showDifficultySelect && (
+                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-sm bg-slate-900 border border-gray-700 rounded-lg p-6 shadow-2xl relative overflow-hidden animate-fade-in-up">
+                        <h2 className="text-2xl font-teko text-white text-center mb-6 tracking-widest">SELECT DIFFICULTY</h2>
+                        <div className="space-y-3">
+                            <button onClick={() => handleDifficultySelect('normal')} className="w-full group relative overflow-hidden rounded border border-blue-500/30 bg-slate-800 p-3 text-left transition hover:border-blue-500 hover:bg-slate-700">
+                                <div className="flex items-center justify-between"><span className="font-teko text-xl text-blue-400 group-hover:text-blue-300">NORMAL</span><span className="text-xs font-bold text-gray-500 group-hover:text-gray-300">LV.1</span></div>
+                                <p className="text-[10px] text-gray-500 mt-0.5 font-zen">ランダムな敵 / 練習用</p>
+                            </button>
+                            <button onClick={() => handleDifficultySelect('elite')} className="w-full group relative overflow-hidden rounded border border-yellow-500/30 bg-slate-800 p-3 text-left transition hover:border-yellow-500 hover:bg-slate-700">
+                                <div className="flex items-center justify-between"><span className="font-teko text-xl text-yellow-400 group-hover:text-yellow-300">ELITE</span><span className="text-xs font-bold text-yellow-600 group-hover:text-yellow-500">LV.2</span></div>
+                                <p className="text-[10px] text-gray-500 mt-0.5 font-zen">ガチ構成 / ルールベースAI</p>
+                            </button>
+                            <button onClick={() => handleDifficultySelect('master')} className="w-full group relative overflow-hidden rounded border border-red-500/30 bg-slate-800 p-3 text-left transition hover:border-red-500 hover:bg-slate-700 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)]">
+                                <div className="absolute -right-6 -top-6 h-16 w-16 rotate-45 bg-red-600/10 group-hover:bg-red-600/20 transition-all"></div>
+                                <div className="flex items-center justify-between relative z-10"><span className="font-teko text-xl text-red-400 group-hover:text-red-300">MASTER</span><span className="text-xs font-bold text-red-500 group-hover:text-red-400 animate-pulse">GEMINI AI</span></div>
+                                <p className="text-[10px] text-gray-500 mt-0.5 relative z-10 font-zen">最強AI / 君の最強パーティーが通用するか</p>
+                            </button>
+                        </div>
+                        <button onClick={() => setShowDifficultySelect(false)} className="mt-6 w-full py-2 text-xs font-bold text-gray-500 hover:text-white transition">CANCEL</button>
+                    </div>
+                </div>
+            )}
+
+            {view === 'online_lobby' && <OnlineLobby onBack={() => setView('title')} onGameStart={handleOnlineStart} />}
+            {view === 'encyclopedia' && <Encyclopedia onBack={() => setView('title')} dbMonsters={dbMonsters} dbMoves={dbMoves} />}
+            {view === 'team' && <TeamBuilder savedTeams={savedTeams} currentTeamIndex={currentTeamIndex} setCurrentTeamIndex={setCurrentTeamIndex} updateTeam={updateTeam} onBack={() => setView('title')} dbMonsters={dbMonsters} dbMoves={dbMoves} />}
+            {view === 'selection' && <MemberSelection
+                myParty={myParty}
+                enemyParty={enemyParty}
+                onComplete={handleBattleStart}
+                onBack={() => setView('title')}
+                isOnline={onlineData.isOnline}
+                roomId={onlineData.roomId}
+                role={onlineData.role}
+                difficulty={difficulty}
+            />}
+
+            {view === 'battle' && <BattleEngine myParty={myParty} enemyParty={enemyParty} initialMyField={initialMyField} initialEnemyField={initialEnemyField} onExit={() => setView('title')} dbMoves={dbMoves} isOnline={onlineData.isOnline} roomId={onlineData.roomId} role={onlineData.role} dbMonsters={dbMonsters} difficulty={difficulty} />}
+
+            {/* ▼ 修正: dbMovesを渡す */}
+            {/* Adventureは現在無効化されています */}
+        </div>
+    );
+};
+
+window.App = App;

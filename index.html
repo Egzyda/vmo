@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Versus Monsters Online</title>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="./monsters.js"></script>
+    <script src="./moves.js"></script>
+
+
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
+
+    <link rel="stylesheet" href="./index.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCLO9xDiYRKqoBO6p8f9WEjMUsPJ_qym-Y",
+            authDomain: "egzyda.firebaseapp.com",
+            projectId: "egzyda",
+            storageBucket: "egzyda.firebasestorage.app",
+            messagingSenderId: "953734376474",
+            appId: "1:953734376474:web:82b60bcfb5afe229b775a3",
+            measurementId: "G-1R1DY79JMM"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        window.db = getFirestore(app);
+        window.auth = getAuth(app);
+        // プロジェクトルールに基づき、Firebase関数をwindow.fbに集約
+        window.fb = {
+            doc, onSnapshot, updateDoc, getDoc, setDoc, onAuthStateChanged
+        };
+
+        // Gemini SDKをwindow経由で利用可能にする
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+        window.GoogleGenerativeAI = GoogleGenerativeAI;
+    </script>
+
+    <script type="text/babel" src="./gameLogic.js"></script>
+    <script type="text/babel" src="./aiLogic.js"></script>
+    <script type="text/babel" src="./geminiLogic.js"></script>
+    <script type="text/babel" src="./Shared.js"></script>
+    <script type="text/babel" src="./OnlineLobby.js"></script>
+    <script type="text/babel" src="./MemberSelection.js"></script>
+    <script type="text/babel" src="./TeamBuilder.js"></script>
+    <script type="text/babel" src="./Encyclopedia.js"></script>
+    <script type="text/babel" src="./BattleEngine.js"></script>
+    <script type="text/babel" src="./app.js"></script>
+
+    <script type="text/babel">
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<window.App />);
+    </script>
+</body>
+</html>
