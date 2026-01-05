@@ -118,9 +118,14 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isS
                 <Header />
                 <div className="w-full aspect-square bg-slate-900 rounded border border-slate-700 flex items-center justify-center overflow-hidden relative group">
                         {monster.img && !imgError ? (
-                            <img src={monster.img} alt={monster.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" onError={(e) => { e.target.onerror = null; setImgError(true); }} />
+                            <img src={monster.img} alt={monster.name} className={`w-full h-full object-contain ${monster.status === 'poison' ? 'status-poison-tint' : ''}`} referrerPolicy="no-referrer" onError={(e) => { e.target.onerror = null; setImgError(true); }} />
                         ) : (
                             <div className={`w-full h-full ${typeBgClass} opacity-50 flex items-center justify-center`}><span className="text-slate-600 text-xs font-teko">NO IMAGE</span></div>
+                        )}
+                        {monster.status === 'poison' && (
+                            <div className="absolute top-1 left-1 z-30 bg-purple-900/90 border border-purple-400 rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-pulse">
+                                <span className="text-[10px] leading-none">💀</span>
+                            </div>
                         )}
                         <div className="absolute bottom-0 w-full bg-black/70 pt-1 pb-0.5 px-1">
                             <ProgressBar current={monster.currentHp} max={monster.maxHp} colorClass={monster.currentHp < monster.maxHp * 0.2 ? 'bg-red-500' : (monster.currentHp < monster.maxHp * 0.5 ? 'bg-yellow-500' : 'bg-green-500')} />
@@ -142,9 +147,14 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isS
             <Header />
             <div className={`w-full aspect-square bg-slate-900 rounded border border-slate-700 mb-1 flex items-center justify-center overflow-hidden relative group`}>
                     {monster.img && !imgError ? (
-                        <img src={monster.img} alt={monster.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" onError={(e) => { e.target.onerror = null; setImgError(true); }} />
+                        <img src={monster.img} alt={monster.name} className={`w-full h-full object-contain ${monster.status === 'poison' ? 'status-poison-tint' : ''}`} referrerPolicy="no-referrer" onError={(e) => { e.target.onerror = null; setImgError(true); }} />
                     ) : (
                         <><div className={`absolute inset-0 opacity-20 ${typeBgClass}`}></div><span className="text-slate-600 text-xs font-teko relative z-10">NO IMAGE</span></>
+                    )}
+                    {monster.status === 'poison' && (
+                        <div className="absolute top-1 left-1 z-30 bg-purple-900/90 border border-purple-400 rounded-full w-4 h-4 flex items-center justify-center shadow-md animate-pulse">
+                            <span className="text-[8px] leading-none">💀</span>
+                        </div>
                     )}
             </div>
             {compact && (

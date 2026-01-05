@@ -154,7 +154,11 @@ const BattleEngine = ({
             }
         });
 
-        const resetTurnState = (s) => s.forEach(m => { m.lastTakenDamage = 0; m.lastTakenDamageSource = null; });
+        const resetTurnState = (s) => s.forEach(m => {
+            m.lastTakenDamage = 0;
+            m.lastTakenDamageSource = null;
+            if (m.status === undefined) m.status = null;
+        });
         resetTurnState(myStateRef.current); resetTurnState(enemyStateRef.current);
         setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
 
@@ -194,29 +198,36 @@ const BattleEngine = ({
             const sidePrefix = action.side === 'player' ? (isOnline?'自分':'味方') + 'の' : (isOnline?'相手':'敵') + 'の';
 
             if (action.type === 'switch') {
+                // 交代先が既に場にいないかチェック（分身バグ防止）
+                const currentField = action.side === 'player' ? myFieldRef.current : enemyFieldRef.current;
+                if (currentField.includes(action.targetIndex)) {
+                    if (action.side === 'player') addLog("しかし 既に場に出ていた！");
+                    continue;
+                }
+
                 addLog(`${sidePrefix}${actor.name} 交代！`);
                 actor.buffs = { atk: 0, def: 0, spd: 0 };
                 actor.protectStreak = 0;
                 actor.isProtected = false;
                 await wait(500);
+
                 if (action.side === 'player') {
                     addLog(`Go! ${myStateRef.current[action.targetIndex].name}!`);
-                    const newField = [...myFieldRef.current]; newField[action.actorSlot] = action.targetIndex;
-                    setMyField(newField); myFieldRef.current = newField;
+                    const newField = [...myFieldRef.current];
+                    newField[action.actorSlot] = action.targetIndex;
+                    setMyField(newField);
+                    myFieldRef.current = newField;
                 } else {
                     addLog(`相手は ${enemyStateRef.current[action.targetIndex].name} を繰り出した！`);
                     const newField = [...enemyFieldRef.current];
-
-                    // 【修正箇所1】配列外参照による5体目出現バグを防止するガード処理
                     if (action.actorSlot >= 0 && action.actorSlot < newField.length) {
                         newField[action.actorSlot] = action.targetIndex;
                         setEnemyField(newField);
                         enemyFieldRef.current = newField;
-                    } else {
-                        console.warn(`[BattleEngine] Invalid AI Switch Slot detected: ${action.actorSlot}. Ignored to prevent bug.`);
                     }
                 }
-                setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
+                setMyState([...myStateRef.current]);
+                setEnemyState([...enemyStateRef.current]);
                 continue;
             }
 
@@ -284,6 +295,8 @@ const BattleEngine = ({
             else if (moveData.target === 'all_enemies') { targetSideField.forEach((pidx, s) => { if (pidx !== -1 && targetSideState[pidx].currentHp > 0) targets.push({ mon: targetSideState[pidx], slot: s }); }); }
             else if (moveData.target === 'self') { targets.push({ mon: actor, slot: action.actorSlot }); }
             else if (moveData.target === 'ally') { let slot = action.targetSlot !== undefined ? action.targetSlot : action.actorSlot; const tIdx = allySideField[slot]; if (tIdx !== -1 && allySideState[tIdx].currentHp > 0) targets.push({ mon: allySideState[tIdx], slot: slot }); else targets.push({ mon: actor, slot: action.actorSlot }); }
+            else if (moveData.target === 'any_single') { const sideState = action.targetSide === 'enemy' ? targetSideState : allySideState; const sideField = action.targetSide === 'enemy' ? targetSideField : allySideField; const tIdx = sideField[action.targetSlot]; if (tIdx !== -1 && sideState[tIdx].currentHp > 0) targets.push({ mon: sideState[tIdx], slot: action.targetSlot }); }
+            else if (moveData.target === 'all_allies') { allySideField.forEach((pidx, s) => { if (pidx !== -1 && allySideState[pidx].currentHp > 0) targets.push({ mon: allySideState[pidx], slot: s }); }); }
             else if (moveData.target === 'all') {
                 targetSideField.forEach((pidx, s) => { if (pidx !== -1 && targetSideState[pidx].currentHp > 0) targets.push({ mon: targetSideState[pidx], slot: s }); });
                 allySideField.forEach((pidx, s) => { if (pidx !== -1 && allySideState[pidx].currentHp > 0 && s !== action.actorSlot) targets.push({ mon: allySideState[pidx], slot: s }); });
@@ -383,9 +396,10 @@ const BattleEngine = ({
                             addLog(`${targetMon.name}は 攻撃を防いだ！`);
                         } else {
                             if (moveData.effect === 'heal') {
-                                const heal = Math.floor(targetMon.maxHp * CONSTANTS.HEAL_PERCENT);
+                                const percent = moveData.heal_percent || CONSTANTS.HEAL_PERCENT;
+                                const heal = Math.floor(targetMon.maxHp * percent);
                                 targetMon.currentHp = Math.min(targetMon.maxHp, targetMon.currentHp + heal);
-                                addLog(`${targetMon.name}回復`);
+                                addLog(`${targetMon.name}を回復`);
                             } else if (moveData.effect.startsWith('buff')) {
                                 const statMap = {'buff_atk':'atk', 'buff_def':'def', 'buff_spd':'spd'};
                                 const s = statMap[moveData.effect];
@@ -402,6 +416,11 @@ const BattleEngine = ({
                                     targetMon.buffs[s] -= 1;
                                     addLog(`${targetMon.name}の${s.toUpperCase()}が下がった`);
                                 }
+                            } else if (moveData.effect === 'reverse_stats') {
+                                ['atk', 'def', 'spd'].forEach(s => {
+                                    targetMon.buffs[s] = -targetMon.buffs[s];
+                                });
+                                addLog(`${targetMon.name}のステータス変化が逆転した！`);
                             }
                         }
                     }
@@ -412,6 +431,19 @@ const BattleEngine = ({
                 const drain = Math.floor(totalActualDamageDealt * 0.5);
                 actor.currentHp = Math.min(actor.maxHp, actor.currentHp + drain);
                 addLog(`${actor.name}はHPを${drain}吸収した`);
+            }
+
+            if (moveData.side_effect === 'poison_target') {
+                targets.forEach(t => {
+                    if (t.mon && t.mon.currentHp > 0) {
+                        if (!t.mon.status) {
+                            t.mon.status = 'poison';
+                            addLog(`${t.mon.name}は毒を浴びた！`, 'important');
+                        } else if (t.mon.status === 'poison') {
+                            addLog(`${t.mon.name}はすでに毒状態だ`);
+                        }
+                    }
+                });
             }
 
             if (moveData.side_effect) {
@@ -443,6 +475,30 @@ const BattleEngine = ({
                  }
             }
 
+            if (moveData.side_effect_target) {
+                const parts = moveData.side_effect_target.split('_');
+                const isBuff = parts[0] === 'buff';
+                const stat = parts[1];
+                const amount = parts.length === 4 && parts[3] === '2' ? 2 : 1;
+
+                targets.forEach(t => {
+                    if (!t.mon || t.mon.currentHp <= 0 || t.mon.isProtected) return;
+                    if (isBuff) {
+                        if (t.mon.buffs[stat] < 2) {
+                            const newVal = Math.min(2, t.mon.buffs[stat] + amount);
+                            const change = newVal - t.mon.buffs[stat];
+                            if (change > 0) { t.mon.buffs[stat] = newVal; addLog(`${t.mon.name}の${stat.toUpperCase()}が上がった！`); }
+                        }
+                    } else {
+                        if (t.mon.buffs[stat] > -2) {
+                            const newVal = Math.max(-2, t.mon.buffs[stat] - amount);
+                            const change = t.mon.buffs[stat] - newVal;
+                            if (change > 0) { t.mon.buffs[stat] = newVal; addLog(`${t.mon.name}の${stat.toUpperCase()}が下がった！`); }
+                        }
+                    }
+                });
+            }
+
             setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
             setTimeout(() => { const clearShake = (s) => s.forEach(m => m.isDamaged = false); clearShake(myStateRef.current); clearShake(enemyStateRef.current); setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]); }, 500);
         }
@@ -458,11 +514,33 @@ const BattleEngine = ({
         const cleanupTurn = (s) => s.forEach(m => { m.isProtected = false; m.isDamaged = false; });
         cleanupTurn(myStateRef.current); cleanupTurn(enemyStateRef.current);
         setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
-        if(!await checkWin()) checkPostTurn();
+        if(!await checkWin()) await checkPostTurn();
     };
 
-    const checkPostTurn = () => {
+    const checkPostTurn = async () => {
         if (distortion) { if (distortionTurns <= 1) { setDistortion(false); setDistortionTurns(0); addLog("ディストーション空間が元に戻った！"); } else setDistortionTurns(prev => prev - 1); }
+
+        const allActive = [...myFieldRef.current.map(i => ({idx: i, state: myStateRef.current})), ...enemyFieldRef.current.map(i => ({idx: i, state: enemyStateRef.current}))];
+        let poisonOccurred = false;
+        for (const entry of allActive) {
+            if (entry.idx !== -1) {
+                const mon = entry.state[entry.idx];
+                if (mon.currentHp > 0 && mon.status === 'poison') {
+                    const dmg = Math.max(1, Math.floor(mon.maxHp / 10));
+                    mon.currentHp = Math.max(0, mon.currentHp - dmg);
+                    mon.isDamaged = true;
+                    addLog(`${mon.name}は毒のダメージを受けている！(-${dmg})`);
+                    poisonOccurred = true;
+                }
+            }
+        }
+        if (poisonOccurred) {
+            setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
+            await new Promise(r => setTimeout(r, 800));
+            const clearShake = (s) => s.forEach(m => m.isDamaged = false);
+            clearShake(myStateRef.current); clearShake(enemyStateRef.current);
+            setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
+        }
 
         const nextMyField = [...myFieldRef.current]; nextMyField.forEach((pidx, slot) => { if (pidx !== -1 && myStateRef.current[pidx].currentHp <= 0) nextMyField[slot] = -1; }); setMyField(nextMyField); myFieldRef.current = nextMyField;
         const nextEnemyField = [...enemyFieldRef.current]; nextEnemyField.forEach((pidx, slot) => { if (pidx !== -1 && enemyStateRef.current[pidx].currentHp <= 0) nextEnemyField[slot] = -1; });
@@ -591,7 +669,12 @@ const BattleEngine = ({
                         return (
                             <div key={i} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group">
                                 <div className="w-full aspect-square rounded overflow-hidden relative mb-0.5 bg-slate-900">
-                                     {m.img ? ( <img src={m.img} className="w-full h-full object-contain opacity-80" /> ) : ( <div className={`w-full h-full ${tBg} opacity-50`}></div> )}
+                                     {m.img ? ( <img src={m.img} className={`w-full h-full object-contain opacity-80 ${m.status === 'poison' ? 'status-poison-tint' : ''}`} /> ) : ( <div className={`w-full h-full ${tBg} opacity-50`}></div> )}
+                                     {m.status === 'poison' && (
+                                         <div className="absolute top-0.5 left-0.5 z-20 bg-purple-900/90 border border-purple-400 rounded-full w-4 h-4 flex items-center justify-center shadow-md">
+                                             <span className="text-[8px] leading-none">💀</span>
+                                         </div>
+                                     )}
                                 </div>
                                 <div className="w-full px-0.5 mb-0.5">
                                     <ProgressBar current={m.currentHp} max={m.maxHp} colorClass={m.currentHp < m.maxHp * 0.2 ? 'bg-red-500' : (m.currentHp < m.maxHp * 0.5 ? 'bg-yellow-500' : 'bg-green-500')} />
@@ -609,10 +692,10 @@ const BattleEngine = ({
                             <div key={slot} className="w-[28%] max-w-[130px] aspect-[3/4] relative" onClick={() => {
                                 if (phase === 'command' && selectingMove) {
                                     const mData = dbMoves[selectingMove];
-                                    if (mData && (mData.target === 'single' || mData.target === 'enemy')) handleCommandSelect('move', { moveName: selectingMove, targetSlot: slot });
+                                    if (mData && (mData.target === 'single' || mData.target === 'enemy' || mData.target === 'any_single')) handleCommandSelect('move', { moveName: selectingMove, targetSlot: slot, targetSide: 'enemy' });
                                 }
                             }}>
-                                <MonsterCard monster={mon} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'single' || dbMoves[selectingMove].target === 'enemy') && mon && mon.currentHp > 0} compact={true} />
+                                <MonsterCard monster={mon} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'single' || dbMoves[selectingMove].target === 'enemy' || dbMoves[selectingMove].target === 'any_single') && mon && mon.currentHp > 0} compact={true} />
                             </div>
                         );
                     })}
@@ -649,7 +732,12 @@ const BattleEngine = ({
                         return (
                             <div key={i} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group">
                                 <div className="w-full aspect-square rounded overflow-hidden relative mb-0.5 bg-slate-900">
-                                     {m.img ? ( <img src={m.img} className="w-full h-full object-contain opacity-80" /> ) : ( <div className={`w-full h-full ${tBg} opacity-50`}></div> )}
+                                     {m.img ? ( <img src={m.img} className={`w-full h-full object-contain opacity-80 ${m.status === 'poison' ? 'status-poison-tint' : ''}`} /> ) : ( <div className={`w-full h-full ${tBg} opacity-50`}></div> )}
+                                     {m.status === 'poison' && (
+                                         <div className="absolute top-0.5 left-0.5 z-20 bg-purple-900/90 border border-purple-400 rounded-full w-4 h-4 flex items-center justify-center shadow-md">
+                                             <span className="text-[8px] leading-none">💀</span>
+                                         </div>
+                                     )}
                                 </div>
                                 <div className="w-full px-0.5 mb-0.5">
                                     <ProgressBar current={m.currentHp} max={m.maxHp} colorClass={m.currentHp < m.maxHp * 0.2 ? 'bg-red-500' : (m.currentHp < m.maxHp * 0.5 ? 'bg-yellow-500' : 'bg-green-500')} />
@@ -669,10 +757,10 @@ const BattleEngine = ({
                             onClick={() => {
                                 if (phase === 'command' && selectingMove) {
                                     const mData = dbMoves[selectingMove];
-                                    if (mData && mData.target === 'ally') handleCommandSelect('move', { moveName: selectingMove, targetSlot: slot });
+                                    if (mData && (mData.target === 'ally' || mData.target === 'any_single')) handleCommandSelect('move', { moveName: selectingMove, targetSlot: slot, targetSide: 'player' });
                                 }
                             }}>
-                                <MonsterCard monster={mon} isActive={isActing} isSelected={isActing} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && dbMoves[selectingMove].target === 'ally' && mon && mon.currentHp > 0} />
+                                <MonsterCard monster={mon} isActive={isActing} isSelected={isActing} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'ally' || dbMoves[selectingMove].target === 'any_single') && mon && mon.currentHp > 0} />
                                 {isActing && <div className="absolute -top-8 left-0 w-full text-center text-xs text-yellow-400 font-bold animate-bounce z-30">▼ COMMAND</div>}
                             </div>
                         );

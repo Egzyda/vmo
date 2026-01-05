@@ -5,7 +5,7 @@
 /* 基本設定 */
 html, body {
     height: 100%;
-    height: 100dvh; 
+    height: 100dvh;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -13,7 +13,7 @@ html, body {
     font-family: 'Zen Kaku Gothic New', sans-serif;
     color: #e2e8f0;
     overscroll-behavior-y: none;
-    position: fixed; 
+    position: fixed;
     width: 100%;
 }
 
@@ -66,3 +66,7 @@ html, body {
 .modal-overlay { background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px); }
 .opacity-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(0.5); }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+/* 状態異常エフェクト */
+.status-poison-tint {
+    filter: sepia(100%) hue-rotate(240deg) saturate(300%) brightness(0.7);
+}
