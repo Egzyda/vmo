@@ -70,3 +70,11 @@ html, body {
 .status-poison-tint {
     filter: sepia(100%) hue-rotate(240deg) saturate(300%) brightness(0.7);
 }
+
+/* Title Screen Animations */
+.perspective-1000 { perspective: 1000px; }
+@keyframes shine {
+    0% { transform: translateX(-100%) skewX(-15deg); }
+    100% { transform: translateX(200%) skewX(-15deg); }
+}
+.group-hover\:animate-shine:hover { animation: shine 0.7s; }

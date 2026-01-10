@@ -4,34 +4,34 @@ const dbMoves = window.dbMoves;
 const { Modal, OnlineLobby, Encyclopedia, TeamBuilder, MemberSelection, BattleEngine, optimizeEnemyLead } = window;
 
 const App = () => {
-     const [view, setView] = useState('loading');
-     const loading = false;
-     const error = null;
+    const [view, setView] = useState('loading');
+    const loading = false;
+    const error = null;
 
-     const [myParty, setMyParty] = useState([]);
-     const [enemyParty, setEnemyParty] = useState([]);
-     const [showTutorial, setShowTutorial] = useState(false);
+    const [myParty, setMyParty] = useState([]);
+    const [enemyParty, setEnemyParty] = useState([]);
+    const [showTutorial, setShowTutorial] = useState(false);
 
-     const [showDifficultySelect, setShowDifficultySelect] = useState(false);
-     const [difficulty, setDifficulty] = useState('normal');
+    const [showDifficultySelect, setShowDifficultySelect] = useState(false);
+    const [difficulty, setDifficulty] = useState('normal');
 
-     const [initialMyField, setInitialMyField] = useState(null);
-     const [initialEnemyField, setInitialEnemyField] = useState(null);
-     const [savedTeams, setSavedTeams] = useState([[], [], []]);
-     const [currentTeamIndex, setCurrentTeamIndex] = useState(0);
-     const [onlineData, setOnlineData] = useState({ isOnline: false, roomId: null, role: null });
+    const [initialMyField, setInitialMyField] = useState(null);
+    const [initialEnemyField, setInitialEnemyField] = useState(null);
+    const [savedTeams, setSavedTeams] = useState([[], [], []]);
+    const [currentTeamIndex, setCurrentTeamIndex] = useState(0);
+    const [onlineData, setOnlineData] = useState({ isOnline: false, roomId: null, role: null });
 
-     useEffect(() => {
-         window.scrollTo(0, 0);
-     }, [view]);
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [view]);
 
-     const [debugTapCount, setDebugTapCount] = useState(0);
+    const [debugTapCount, setDebugTapCount] = useState(0);
 
-    const createMonsterInstance = (id) => { const data = dbMonsters.find(m => m.id == id); if(!data) return null; return { ...data, uid: Math.random().toString(36).substr(2, 9), maxHp: data.hp, currentHp: data.hp, buffs: { atk: 0, def: 0, spd: 0 }, selectedMoves: data.moves.slice(0, 3), isDamaged: false, isProtected: false, protectStreak: 0, lastTakenDamage: 0, lastTakenDamageSource: null }; };
+    const createMonsterInstance = (id) => { const data = dbMonsters.find(m => m.id == id); if (!data) return null; return { ...data, uid: Math.random().toString(36).substr(2, 9), maxHp: data.hp, currentHp: data.hp, buffs: { atk: 0, def: 0, spd: 0 }, selectedMoves: data.moves.slice(0, 3), isDamaged: false, isProtected: false, protectStreak: 0, lastTakenDamage: 0, lastTakenDamageSource: null }; };
 
     // 1. 初心者向け
     const createBeginnerParty = () => {
-        if(!dbMonsters || dbMonsters.length === 0) return [];
+        if (!dbMonsters || dbMonsters.length === 0) return [];
         // 修正: ID 999(ボス)を除外 かつ ID 24未満(クラシック)のみに限定
         const candidates = dbMonsters.filter(m => m.id != 999 && m.id < 24);
         const shuffled = [...candidates].sort(() => 0.5 - Math.random()).slice(0, 4);
@@ -40,16 +40,16 @@ const App = () => {
 
     // 2. ELITE向け (LV.2)
     const createEliteParty = () => {
-        if(!dbMonsters || dbMonsters.length === 0) return [];
+        if (!dbMonsters || dbMonsters.length === 0) return [];
 
         const ELITE_TEAMS = [
             {
                 name: "Speed Blitz",
                 desc: "神速アグロ",
                 members: [
-                    { id: 6,  moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] },
+                    { id: 6, moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] },
                     { id: 19, moves: ['キラーダイブ', 'アクアダッシュ', 'プロテクション'] },
-                    { id: 1,  moves: ['フレイムバースト', 'ヒートウェーブ', 'プロテクション'] },
+                    { id: 1, moves: ['フレイムバースト', 'ヒートウェーブ', 'プロテクション'] },
                     { id: 13, moves: ['アクアストリーム', 'アイスホーン', 'プロテクション'] }
                 ]
             },
@@ -57,9 +57,9 @@ const App = () => {
                 name: "Iron Wall",
                 desc: "重戦車タンク",
                 members: [
-                    { id: 3,  moves: ['アクアストリーム', 'マッドウェーブ', 'プロテクション'] },
+                    { id: 3, moves: ['アクアストリーム', 'マッドウェーブ', 'プロテクション'] },
                     { id: 11, moves: ['フレイムバースト', 'ヒートウェーブ', 'プロテクション'] },
-                    { id: 5,  moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] },
+                    { id: 5, moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] },
                     { id: 14, moves: ['アクアストリーム', 'ハーフカット', 'プロテクション'] }
                 ]
             },
@@ -68,7 +68,7 @@ const App = () => {
                 desc: "空間歪曲・重火力",
                 members: [
                     { id: 10, moves: ['ディストーション', 'ダークインパクト', 'プロテクション'] },
-                    { id: 9,  moves: ['ダークミスト', 'カースドノヴァ', 'プロテクション'] },
+                    { id: 9, moves: ['ダークミスト', 'カースドノヴァ', 'プロテクション'] },
                     { id: 15, moves: ['グラスファング', 'カッターウィンド', 'プロテクション'] },
                     { id: 17, moves: ['ボルトクロー', 'フラッシュバン', 'プロテクション'] }
                 ]
@@ -81,7 +81,7 @@ const App = () => {
                     { id: 13, moves: ['アクアストリーム', 'アイスホーン', 'プロテクション'] },
                     { id: 17, moves: ['ボルトクロー', 'フラッシュバン', 'プロテクション'] },
                     { id: 19, moves: ['キラーダイブ', 'アクアダッシュ', 'プロテクション'] },
-                    { id: 4,  moves: ['アクアストリーム', 'マッドウェーブ', 'プロテクション'] }
+                    { id: 4, moves: ['アクアストリーム', 'マッドウェーブ', 'プロテクション'] }
                 ]
             },
             // ▼ 追加チーム2: 攻撃技オンリーの炎草物理 (Crimson Fang)
@@ -92,7 +92,7 @@ const App = () => {
                     { id: 15, moves: ['グラスファング', 'カッターウィンド', 'プロテクション'] },
                     { id: 23, moves: ['ヘルブレード', 'ヒートウェーブ', 'プロテクション'] },
                     { id: 12, moves: ['フレイムバースト', 'ラッシュ', 'プロテクション'] },
-                    { id: 5,  moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] }
+                    { id: 5, moves: ['ソーンウィップ', 'カッターウィンド', 'プロテクション'] }
                 ]
             }
         ];
@@ -115,22 +115,22 @@ const App = () => {
 
     // 3. MASTER向け (LV.3)
     const createMasterParty = () => {
-        if(!dbMonsters || dbMonsters.length === 0) return [];
+        if (!dbMonsters || dbMonsters.length === 0) return [];
 
         const MASTER_TEAMS = [
             {
                 name: "Aggro Rush",
                 members: [
                     { id: 19, moves: ['キラーダイブ', 'プロテクション', 'パワーチャージ'] },
-                    { id: 1,  moves: ['フレイムバースト', 'プロテクション', 'アクセルステップ'] },
-                    { id: 7,  moves: ['ホーリーレイ', 'フラッシュバン', 'プロテクション'] },
+                    { id: 1, moves: ['フレイムバースト', 'プロテクション', 'アクセルステップ'] },
+                    { id: 7, moves: ['ホーリーレイ', 'フラッシュバン', 'プロテクション'] },
                     { id: 13, moves: ['アクアストリーム', 'アイスホーン', 'プロテクション'] }
                 ]
             },
             {
                 name: "Synergy Blitz",
                 members: [
-                    { id: 6,  moves: ['アクセルステップ', 'ヒールライト', 'ソーンウィップ'] },
+                    { id: 6, moves: ['アクセルステップ', 'ヒールライト', 'ソーンウィップ'] },
                     { id: 13, moves: ['アイスホーン', 'アクセルステップ', 'ドレインホーン'] },
                     { id: 19, moves: ['キラーダイブ', 'パワーチャージ', 'プロテクション'] },
                     { id: 23, moves: ['ヘルブレード', 'ヒートウェーブ', 'プロテクション'] }
@@ -141,8 +141,8 @@ const App = () => {
                 members: [
                     { id: 10, moves: ['ダークインパクト', 'ディストーション', 'プロテクション'] },
                     { id: 17, moves: ['プロテクション', 'ボルトクロー', 'パワーチャージ'] },
-                    { id: 3,  moves: ['アクアストリーム', 'アイアンシェル', 'プロテクション'] },
-                    { id: 9,  moves: ['ダークミスト', 'カースドノヴァ', 'プロテクション'] }
+                    { id: 3, moves: ['アクアストリーム', 'アイアンシェル', 'プロテクション'] },
+                    { id: 9, moves: ['ダークミスト', 'カースドノヴァ', 'プロテクション'] }
                 ]
             },
             // ▼ 追加チーム1: 光属性中心＋加速 (Photon Saber)
@@ -150,7 +150,7 @@ const App = () => {
                 name: "Photon Saber",
                 members: [
                     { id: 24, moves: ['ホーリーレイ', 'アイスホーン', 'アクセルステップ'] },
-                    { id: 7,  moves: ['ホーリーレイ', '光速の爪', 'パワーチャージ'] },
+                    { id: 7, moves: ['ホーリーレイ', '光速の爪', 'パワーチャージ'] },
                     { id: 16, moves: ['ハーフカット', 'ソーンウィップ', 'アクセルステップ'] },
                     { id: 18, moves: ['アルティメットレイ', 'ラッシュ', 'プロテクション'] }
                 ]
@@ -200,7 +200,7 @@ const App = () => {
                 if (saved) {
                     try {
                         const parsed = JSON.parse(saved);
-                        if(parsed.length === 3) {
+                        if (parsed.length === 3) {
                             return parsed.map((team, tIdx) => {
                                 const hasVersus = team.some(m => m.id === 999);
                                 if (hasVersus) return null;
@@ -227,7 +227,7 @@ const App = () => {
                                 });
                             });
                         }
-                    } catch(e) {}
+                    } catch (e) { }
                 }
                 const t1 = [1, 3, 5, 7].map(createMonsterInstance).filter(m => m !== null);
                 const t2 = [2, 4, 9, 10].map(createMonsterInstance).filter(m => m !== null);
@@ -296,7 +296,7 @@ const App = () => {
     return (
         <div className="app-container">
             <div className="absolute inset-0 scanline z-50 pointer-events-none"></div>
-{showTutorial && (
+            {showTutorial && (
                 <Modal title="SYSTEM GUIDE: ADVANCED" onClose={() => setShowTutorial(false)}>
                     <div className="space-y-6 font-zen pr-2">
 
@@ -304,8 +304,8 @@ const App = () => {
                         <div className="border-l-4 border-blue-500 pl-3">
                             <h4 className="font-bold text-blue-400 text-lg mb-1 font-teko tracking-wider">01. INTRODUCTION</h4>
                             <p className="text-xs text-gray-300 leading-relaxed">
-                                電脳空間「VMO アリーナ」へようこそ。<br/>
-                                ここは戦うために創造されたモンスターを使役する戦術シミュレーターです。<br/>
+                                電脳空間「VMO アリーナ」へようこそ。<br />
+                                ここは戦うために創造されたモンスターを使役する戦術シミュレーターです。<br />
                                 4体のチームから2体を選出し、相手を全滅させれば勝利となります。
                             </p>
                         </div>
@@ -339,7 +339,7 @@ const App = () => {
                                 <div className="bg-slate-800 p-2 rounded">
                                     <span className="text-blue-400 font-bold">RESISTANCE (x0.5 Damage)</span>
                                     <p className="mt-1 text-gray-300 leading-tight">
-                                        攻撃側と同じ属性、または耐性属性で受けるとダメージ半減。<br/>
+                                        攻撃側と同じ属性、または耐性属性で受けるとダメージ半減。<br />
                                         <span className="text-[10px] text-gray-500 mt-1 block">例: 炎技を炎モンスターが受けると0.5倍</span>
                                     </p>
                                 </div>
@@ -356,8 +356,8 @@ const App = () => {
                                 <li><span className="text-gray-400">乱数</span> <span className="text-gray-500 text-[10px]">同速の場合はランダム</span></li>
                             </ol>
                             <div className="mt-2 text-[10px] text-purple-300 border border-purple-500/30 bg-purple-900/20 p-1.5 rounded">
-                                <strong>⚠️ FIELD EFFECT: DISTORTION</strong><br/>
-                                「ディストーション」発動中(5ターン)は、SPD順序が逆転します。<br/>
+                                <strong>⚠️ FIELD EFFECT: DISTORTION</strong><br />
+                                「ディストーション」発動中(5ターン)は、SPD順序が逆転します。<br />
                                 (遅いモンスターが先制。ただし技の優先度は維持されます)
                             </div>
                         </div>
@@ -394,26 +394,86 @@ const App = () => {
                 </Modal>
             )}
             {view === 'title' && (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative z-10 px-6">
-                    <h1 className="text-7xl font-teko font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-br from-red-500 via-white to-blue-500 text-shadow mb-2 text-center leading-none">VERSUS<br/>MONSTERS</h1>
-                    <p className="text-gray-500 mb-8 font-teko tracking-[0.2em] text-sm">TACTICAL BATTLE SIMULATION</p>
-
-                    <div className="w-full max-w-xs space-y-2.5">
-
-
-                        <button onClick={() => setShowDifficultySelect(true)} className="w-full py-3 bg-gradient-to-r from-blue-700 to-blue-600 rounded shadow-lg shadow-blue-500/20 font-bold hover:scale-105 transition border-t border-blue-400 tracking-wider">SINGLE BATTLE</button>
-                        <button onClick={() => setView('online_lobby')} className="w-full py-3 bg-gradient-to-r from-purple-700 to-purple-600 rounded shadow-lg shadow-purple-500/20 font-bold hover:scale-105 transition border-t border-purple-400 tracking-wider">ONLINE BATTLE</button>
-                        <button onClick={() => setView('team')} className="w-full py-3 bg-gray-800 rounded border border-gray-700 hover:bg-gray-700 transition font-bold text-gray-300 tracking-wider">TEAM EDIT</button>
-                        <button onClick={() => setView('encyclopedia')} className="w-full py-3 bg-slate-800 rounded border border-slate-600 hover:bg-slate-700 transition font-bold text-gray-300 tracking-wider">MONSTER DATA</button>
-                        <button onClick={() => setShowTutorial(true)} className="w-full py-3 bg-gray-800 rounded border border-gray-700 hover:bg-gray-700 transition font-bold text-gray-300 tracking-wider">TUTORIAL</button>
+                <div className="w-full h-full relative overflow-hidden bg-black font-zen text-white select-none flex flex-col items-center justify-center p-6">
+                    {/* 背景画像レイヤー */}
+                    <div className="absolute inset-0 z-0">
+                        <img src="./img/menu_bg.png" className="w-full h-full object-cover opacity-80" alt="Cyber Background" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/60 mix-blend-multiply"></div>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)]"></div>
                     </div>
 
-                    <div onClick={handleVersionTap} className="absolute bottom-4 text-xs text-gray-600 font-teko cursor-pointer select-none active:text-gray-400">VER 4.1.0 - Full Unlock</div>
+                    {/* スキャンライン & グリッチエフェクト (Shared from Global CSS usually, but adding specifics here if needed) */}
+                    <div className="absolute inset-0 z-10 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] opacity-20"></div>
+
+                    {/* コンテンツレイヤー */}
+                    <div className="relative z-20 w-full flex flex-col items-center justify-center">
+
+                        {/* タイトルロゴエリア */}
+                        <div className="mb-8 md:mb-12 relative group cursor-default text-center">
+                            <h1 className="text-7xl md:text-8xl font-teko font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 relative z-10 leading-[0.85] filter drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">
+                                VERSUS<br />
+                                <span className="text-5xl md:text-6xl tracking-[0.2em] bg-clip-text bg-gradient-to-br from-cyan-400 to-purple-500">MONSTERS</span>
+                            </h1>
+
+                            {/* ゴースト/グリッチレイヤー */}
+                            <h1 className="absolute inset-0 text-7xl md:text-8xl font-teko font-bold tracking-widest text-red-500 opacity-40 blur-[1px] animate-pulse leading-[0.85] translate-x-1 select-none pointer-events-none mix-blend-screen">
+                                VERSUS<br /><span className="text-5xl md:text-6xl tracking-[0.2em]">MONSTERS</span>
+                            </h1>
+                            <h1 className="absolute inset-0 text-7xl md:text-8xl font-teko font-bold tracking-widest text-blue-500 opacity-40 blur-[1px] animate-pulse delay-75 leading-[0.85] -translate-x-1 select-none pointer-events-none mix-blend-screen">
+                                VERSUS<br /><span className="text-5xl md:text-6xl tracking-[0.2em]">MONSTERS</span>
+                            </h1>
+
+                            <p className="text-cyan-400/80 mt-4 font-teko tracking-[0.5em] text-xs text-center border-t border-cyan-500/30 pt-2 w-full max-w-xs mx-auto uppercase">
+                                Tactical Battle Simulation
+                            </p>
+                        </div>
+
+                        {/* メニューボタンエリア */}
+                        <div className="w-full max-w-sm space-y-3 perspective-1000">
+
+                            {/* Single Battle */}
+                            <button onClick={() => setShowDifficultySelect(true)} className="group relative w-full py-4 bg-slate-900/40 backdrop-blur-md border border-cyan-500/30 rounded overflow-hidden transition-all duration-300 hover:scale-105 hover:bg-cyan-900/30 hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full group-hover:animate-shine"></div>
+                                <div className="flex items-center justify-center gap-3">
+                                    <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_5px_cyan]"></span>
+                                    <span className="font-teko text-2xl font-bold tracking-widest text-cyan-100 group-hover:text-white">SINGLE BATTLE</span>
+                                    <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_5px_cyan]"></span>
+                                </div>
+                            </button>
+
+                            {/* Online Battle */}
+                            <button onClick={() => setView('online_lobby')} className="group relative w-full py-4 bg-slate-900/40 backdrop-blur-md border border-purple-500/30 rounded overflow-hidden transition-all duration-300 hover:scale-105 hover:bg-purple-900/30 hover:border-purple-400 hover:shadow-[0_0_20px_rgba(168,85,247,0.3)]">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-400/10 to-transparent -translate-x-full group-hover:animate-shine"></div>
+                                <div className="flex items-center justify-center gap-3">
+                                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full shadow-[0_0_5px_purple]"></span>
+                                    <span className="font-teko text-2xl font-bold tracking-widest text-purple-100 group-hover:text-white">ONLINE BATTLE</span>
+                                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full shadow-[0_0_5px_purple]"></span>
+                                </div>
+                            </button>
+
+                            {/* Sub Menus */}
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                                <button onClick={() => setView('team')} className="py-3 bg-slate-900/30 border border-slate-600/50 rounded hover:bg-slate-800/50 hover:border-slate-400 hover:text-white text-slate-400 font-teko tracking-wider text-lg transition-all">
+                                    TEAM EDIT
+                                </button>
+                                <button onClick={() => setView('encyclopedia')} className="py-3 bg-slate-900/30 border border-slate-600/50 rounded hover:bg-slate-800/50 hover:border-slate-400 hover:text-white text-slate-400 font-teko tracking-wider text-lg transition-all">
+                                    MONSTER DATA
+                                </button>
+                            </div>
+
+                            <button onClick={() => setShowTutorial(true)} className="w-full py-2 mt-1 text-slate-500 text-xs font-teko tracking-[0.2em] hover:text-cyan-400 transition-colors uppercase">
+                                System Guide & Tutorial
+                            </button>
+
+                        </div>
+
+                        <div onClick={handleVersionTap} className="absolute -bottom-8 text-[10px] text-gray-600 font-teko cursor-pointer select-none active:text-gray-400">VER 4.1.0 - Full Unlock</div>
+                    </div>
                 </div>
             )}
 
             {showDifficultySelect && (
-                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
                     <div className="w-full max-w-sm bg-slate-900 border border-gray-700 rounded-lg p-6 shadow-2xl relative overflow-hidden animate-fade-in-up">
                         <h2 className="text-2xl font-teko text-white text-center mb-6 tracking-widest">SELECT DIFFICULTY</h2>
                         <div className="space-y-3">

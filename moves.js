@@ -19,7 +19,7 @@ window.dbMoves =
   "アイアンシェル": { "type": "⚪", "power": 0, "priority": 0, "target": "ally", "category": "status", "effect": "buff_def", "desc": "味方単体のDEF上昇" },
   "アクセルステップ": { "type": "⚪", "power": 0, "priority": 0, "target": "ally", "category": "status", "effect": "buff_spd", "desc": "味方単体のSPD上昇" },
   "インティミデイト": { "type": "⚪", "power": 0, "priority": 0, "target": "all_enemies", "category": "status", "effect": "debuff_atk", "desc": "敵全体のATK下降" },
-  "アシッドボム": { "type": "⚪", "power": 40, "priority": 0, "target": "single", "category": "physical", "side_effect_target": "debuff_def_target", "desc": "攻撃後、相手のDEFを1段階下げる" },
+  "アシッドボム": { "type": "⚪", "power": 0, "priority": 0, "target": "all_enemies", "category": "status", "effect": "debuff_def", "desc": "敵全体のDEF下降" },
   "スパイダーネット": { "type": "⚪", "power": 0, "priority": 0, "target": "all_enemies", "category": "status", "effect": "debuff_spd", "desc": "敵全体のSPD下降" },
   "ヒールライト": { "type": "✨", "power": 0, "priority": 0, "target": "ally", "category": "status", "effect": "heal", "desc": "味方単体のHPを30％回復" },
   "グラスヒール": { "type": "🌿", "power": 0, "priority": 0, "target": "all_allies", "category": "status", "effect": "heal", "heal_percent": 0.2, "desc": "味方全体のHPを20％回復" },

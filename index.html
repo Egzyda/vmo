@@ -30,7 +30,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, onSnapshot, updateDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCLO9xDiYRKqoBO6p8f9WEjMUsPJ_qym-Y",
@@ -47,7 +47,7 @@
         window.auth = getAuth(app);
         // プロジェクトルールに基づき、Firebase関数をwindow.fbに集約
         window.fb = {
-            doc, onSnapshot, updateDoc, getDoc, setDoc, onAuthStateChanged
+            doc, onSnapshot, updateDoc, getDoc, setDoc, onAuthStateChanged, signInAnonymously
         };
 
         // Gemini SDKをwindow経由で利用可能にする
