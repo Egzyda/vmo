@@ -1,8 +1,24 @@
-const { GoogleGenerativeAI, getStatMultiplier, getTypeMultiplier } = window;
+const { getStatMultiplier, getTypeMultiplier } = window;
 
-const API_KEY = "AIzaSyDhhnL7K7-7lvvTe8nt0wejtP0qy8I8GdQ";
+// APIキーはソースに埋め込まない。
+// 1) config.local.js（.gitignore対象）で window.VMO_CONFIG.geminiApiKey を設定
+// 2) または localStorage の 'vmo_gemini_key'
+// 未設定ならGemini AIは無効化され、ルールベースAI（aiLogic.js）にフォールバックする。
+const getApiKey = () => {
+    if (window.VMO_CONFIG && window.VMO_CONFIG.geminiApiKey) return window.VMO_CONFIG.geminiApiKey;
+    try { return localStorage.getItem('vmo_gemini_key') || null; } catch (e) { return null; }
+};
 
-const genAI = new GoogleGenerativeAI(API_KEY);
+let genAI = null;
+
+// 遅延初期化。ESM側の window.GoogleGenerativeAI 設定より先に
+// このファイルが評価されても壊れないよう、呼び出し時に参照する。
+const getModel = (generationConfig) => {
+    const key = getApiKey();
+    if (!key || !window.GoogleGenerativeAI) return null;
+    if (!genAI) genAI = new window.GoogleGenerativeAI(key);
+    return genAI.getGenerativeModel({ model: "gemini-flash-latest", generationConfig });
+};
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -338,15 +354,13 @@ const getGeminiAction = window.getGeminiAction = async (actorIndex, actorSlot, a
             const actor = aiState[actorIndex];
             if (!actor || actor.currentHp <= 0) return null;
 
-            const model = genAI.getGenerativeModel({
-                model: "gemini-flash-latest",
-                generationConfig: {
-                    temperature: 0.2,
-                    topP: 0.95,
-                    topK: 40,
-                    responseMimeType: "application/json"
-                }
+            const model = getModel({
+                temperature: 0.2,
+                topP: 0.95,
+                topK: 40,
+                responseMimeType: "application/json"
             });
+            if (!model) return null;
 
             if (!dbMoves) return null;
 
@@ -415,13 +429,12 @@ JSONのみ出力。
 const getGeminiLead = window.getGeminiLead = async (aiParty, playerParty) => {
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
-            const model = genAI.getGenerativeModel({
-                model: "gemini-flash-latest",
-                generationConfig: {
-                    temperature: 0.1,
-                    responseMimeType: "application/json"
-                }
+            const model = getModel({
+                temperature: 0.1,
+                responseMimeType: "application/json"
             });
+            if (!model) return null;
+
             const prompt = createLeadPrompt(aiParty, playerParty);
             const result = await model.generateContent(prompt);
             const text = result.response.text();
