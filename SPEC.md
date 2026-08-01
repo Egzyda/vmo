@@ -9,7 +9,8 @@
 > - 既存の `BattleEngine.js` のロジックは極力変更しない
 > - アドベンチャー専用機能（下位技、レベル、経験値等）は別ファイルで管理
 > - 対戦モードとアドベンチャーモードでデータを分離
-> - 共通変更は「技4つ化」「6ステータス化」「属性ID化」「UI改修」のみ
+> - 共通変更は「属性ID化」「UI改修」のみ
+> - **ステータス4軸・技3つ（候補6つから選択）の現行仕様は維持する**（シンプルさが本作の売り）
 
 ---
 
@@ -30,18 +31,18 @@
 
 ### 1.2 ステータス構成
 
+**4軸固定**。物理/特殊の区別は設けない（シンプルさ優先）。
+
 ```javascript
 {
   id: number,
   name: string,
   type: "fire" | "water" | "grass" | "light" | "dark" | "normal",
   hp: number,      // HP（5の倍数）
-  atk: number,     // 物理攻撃（5の倍数）
-  spAtk: number,   // 特殊攻撃（5の倍数）
-  def: number,     // 物理防御（5の倍数）
-  spDef: number,   // 特殊防御（5の倍数）
+  atk: number,     // 攻撃（5の倍数）
+  def: number,     // 防御（5の倍数）
   spd: number,     // 素早さ（5の倍数）
-  moves: string[],
+  moves: string[], // 候補技6つ
   img: string,
   desc: string
 }
@@ -51,7 +52,7 @@
 
 ```javascript
 const STAT_WEIGHTS = {
-  hp: 1.0, atk: 1.3, spAtk: 1.3, def: 1.1, spDef: 1.1, spd: 1.2
+  hp: 1.0, atk: 1.3, def: 1.1, spd: 1.2
 };
 const TARGET_TOTAL = 500;
 const TOLERANCE = 10;
@@ -59,59 +60,29 @@ const TOLERANCE = 10;
 ```
 
 ### 1.4 技の数
-- **対戦・アドベンチャー共通**: 4技
+- **候補**: 各モンスター6技
+- **選択**: そこから**3技**を編成時に選ぶ（対戦・アドベンチャー共通）
+- 「6つのうちどの3つを持たせるか」が編成の中心的な意思決定になるため、この比率は変更しない
 
 ---
 
 ## 2. 技システム仕様
 
-### 2.1 汎用技（物理/特殊両版、威力同じ）
+### 2.1 汎用技
 
-#### 炎属性（威力110/65）
-| 技名 | 威力 | カテゴリ | 対象 |
-|------|------|----------|------|
-| フレイムバースト | 110 | special | single |
-| ファイアクロー | 110 | physical | single |
-| ヒートウェーブ | 65 | special | all_enemies |
-| フレイムラッシュ | 65 | physical | all_enemies |
+> [!NOTE]
+> ステータスが4軸のため、物理/特殊の区別は**設けない**。
+> 攻撃技のカテゴリは `physical`、変化技は `status` の2種類のみ。
+> （旧仕様にあった「同威力の物理版/特殊版を両方用意する」案は廃止）
 
-#### 水属性（威力110/65）
-| 技名 | 威力 | カテゴリ | 対象 |
-|------|------|----------|------|
-| アクアストリーム | 110 | special | single |
-| アクアファング | 110 | physical | single |
-| マッドウェーブ | 65 | special | all_enemies |
-| タイダルスラッシュ | 65 | physical | all_enemies |
-
-#### 草属性（威力110/65）
-| 技名 | 威力 | カテゴリ | 対象 |
-|------|------|----------|------|
-| リーフストーム | 110 | special | single |
-| ソーンウィップ | 110 | physical | single |
-| カッターウィンド | 65 | special | all_enemies |
-| ブレイドリーフ | 65 | physical | all_enemies |
-
-#### 光属性（威力100/65）
-| 技名 | 威力 | カテゴリ | 対象 |
-|------|------|----------|------|
-| ホーリーレイ | 100 | special | single |
-| ホーリークロー | 100 | physical | single |
-| フラッシュバン | 65 | special | all_enemies |
-| ライトスラッシュ | 65 | physical | all_enemies |
-
-#### 闇属性（威力100/65）
-| 技名 | 威力 | カテゴリ | 対象 |
-|------|------|----------|------|
-| ダークレイ | 100 | special | single |
-| ダークインパクト | 100 | physical | single |
-| ダークミスト | 65 | special | all_enemies |
-| シャドウストライク | 65 | physical | all_enemies |
-
-#### 無属性（威力90）
-| 技名 | 威力 | カテゴリ | 対象 |
-|------|------|----------|------|
-| ラッシュ | 90 | physical | single |
-| マインドショット | 90 | special | single |
+| 属性 | 単体技（威力） | 全体技（威力） |
+|------|----------------|----------------|
+| 炎 | フレイムバースト (110) | ヒートウェーブ (65) |
+| 水 | アクアストリーム (110) | マッドウェーブ (65) |
+| 草 | ソーンウィップ (110) | カッターウィンド (65) |
+| 光 | ホーリーレイ (100) | フラッシュバン (65) |
+| 闇 | ダークインパクト (100) | ダークミスト (65) |
+| 無 | ラッシュ (90) | － |
 
 ### 2.2 バフ/デバフ技
 
@@ -119,36 +90,28 @@ const TOLERANCE = 10;
 | 技名 | 効果 | 対象 |
 |------|------|------|
 | パワーチャージ | buff_atk | ally |
-| コンセントレート | buff_spAtk | ally |
 | アイアンシェル | buff_def | ally |
-| マインドバリア | buff_spDef | ally |
 | アクセルステップ | buff_spd | ally |
 
 #### デバフ
 | 技名 | 効果 | 対象 |
 |------|------|------|
 | インティミデイト | debuff_atk | all_enemies |
-| サイレンス | debuff_spAtk | all_enemies |
 | アシッドボム | debuff_def | all_enemies |
-| マインドクラッシュ | debuff_spDef | all_enemies |
 | スパイダーネット | debuff_spd | all_enemies |
 
 ### 2.3 アドベンチャー専用技（下位互換）
 
-| 技名 | 属性 | 威力 | カテゴリ |
-|------|------|------|----------|
-| プチファイア | fire | 40 | special |
-| スパーク | fire | 40 | physical |
-| アクアショット | water | 40 | special |
-| アクアタックル | water | 40 | physical |
-| リーフショット | grass | 40 | special |
-| ツルアタック | grass | 40 | physical |
-| ミニレイ | light | 35 | special |
-| ライトタッチ | light | 35 | physical |
-| シャドウタッチ | dark | 35 | physical |
-| ダークパルス | dark | 35 | special |
-| タックル | normal | 30 | physical |
-| ウェーブ | normal | 30 | special |
+属性ごとに1つ。カテゴリは全て `physical`。
+
+| 技名 | 属性 | 威力 |
+|------|------|------|
+| プチファイア | fire | 40 |
+| アクアショット | water | 40 |
+| リーフショット | grass | 40 |
+| ミニレイ | light | 35 |
+| シャドウタッチ | dark | 35 |
+| タックル | normal | 30 |
 
 ---
 
@@ -156,16 +119,13 @@ const TOLERANCE = 10;
 
 ### 3.1 ダメージ計算式
 
+現行の `BattleEngine.js` の実装に準拠（4ステータス）。
+
 ```javascript
 function calculateDamage(actor, target, move, rng) {
-  const isSpecial = move.category === "special";
-  const atk = isSpecial 
-    ? actor.spAtk * getStatMultiplier(actor.buffs.spAtk)
-    : actor.atk * getStatMultiplier(actor.buffs.atk);
-  const def = isSpecial
-    ? target.spDef * getStatMultiplier(target.buffs.spDef)
-    : target.def * getStatMultiplier(target.buffs.def);
-  
+  const atk = actor.atk * getStatMultiplier(actor.buffs.atk);
+  const def = target.def * getStatMultiplier(target.buffs.def);
+
   let damage = Math.floor((atk * move.power / def / 2));
   
   if (actor.level) {
@@ -325,7 +285,7 @@ const SHOP_ITEMS = [
 
 ## 5. UI仕様
 
-### 5.1 技コマンド（4技縦並び、情報量維持）
+### 5.1 技コマンド（3技縦並び、情報量維持）
 
 ```
 ┌────────────────────────────────────────┐
@@ -339,17 +299,13 @@ const SHOP_ITEMS = [
 │ │ 説明文テキスト...            │ │  │ │
 │ ├──────────────────────────────┤ │  │ │
 │ │ 技3名        [草] P:65       │ │  │ │
-│ │ 説明文テキスト...            │ │  │ │
-│ ├──────────────────────────────┤ │  │ │
-│ │ 技4名        [無] P:90       │ │  │ │
 │ │ 説明文テキスト...            │ └──┘ │
 │ └──────────────────────────────┘      │
 └────────────────────────────────────────┘
 ```
 - 縦並び1列、現在と同じ表示形式
 - 技名・属性バッジ・威力・説明文を常時表示
-- コマンドエリア高さを必要に応じて調整（220px→240px程度）
-- 技ボタンをコンパクト化しつつ情報量は維持
+- 3技なので1つあたりの表示領域に余裕がある。情報量を削らない
 
 ### 5.2 背景画像
 
@@ -383,9 +339,9 @@ const SHOP_ITEMS = [
 ### 変更ファイル
 | ファイル | 変更 |
 |----------|------|
-| monsters.js | 6ステータス、type文字列化 |
-| moves.js | 両版追加、type文字列化 |
-| BattleEngine.js | 計算分岐、4技UI、背景 |
+| monsters.js | type文字列化（ステータスは4軸のまま） |
+| moves.js | type文字列化 |
+| BattleEngine.js | 背景差し替え（技UI・計算式は現行維持） |
 | Shared.js | バッジ対応 |
 | app.js | メニュー変更、Firebase Auth統合 |
 
@@ -394,9 +350,11 @@ const SHOP_ITEMS = [
 ## 7. 実装順序
 
 1. Phase 0: 属性文字列ID化
-2. Phase 1: 技4つ対応+UI改修
-3. Phase 2: 6ステータス+ダメージ計算
-4. Phase 3: 対戦背景追加
-5. Phase 4: アドベンチャー基盤+Firebase Auth
-6. Phase 5: ダンジョンB30-B20
-7. Phase 6: 技演出
+2. Phase 1: 対戦背景追加
+3. Phase 2: アドベンチャー基盤+Firebase Auth
+4. Phase 3: ダンジョンB30-B20
+5. Phase 4: 技演出
+
+> [!NOTE]
+> 旧Phase「技4つ対応」「6ステータス化」は廃止。
+> ステータス4軸・技3つは現行のまま維持する方針に決定。

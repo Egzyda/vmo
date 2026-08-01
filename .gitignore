@@ -1,0 +1,7 @@
+# ローカル設定（APIキー等）。絶対にコミットしない
+config.local.js
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+*.log
