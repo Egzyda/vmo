@@ -109,7 +109,11 @@ const getWildMoveSet = window.getWildMoveSet = (monster, floorPosition, dbMoves,
 
 // エリート/ボス: 威力順の攻撃技2つ + 補助技1つを機械的に自動編成
 const getEliteMoves = window.getEliteMoves = (monster, level, dbMoves) => {
-    const known = getKnownMovesOnCapture(monster, level, dbMoves);
+    const starter = STARTER_MOVES[monster.type];
+    // 下位技はエリート/ボスの枠を埋めるだけの弱技なので除外する
+    // （残りが無くなる場合のみフォールバックとして使う）
+    const known = getKnownMovesOnCapture(monster, level, dbMoves).filter(m => m !== starter);
+
     const attack = known
         .filter(m => dbMoves[m] && dbMoves[m].category !== 'status')
         .sort((a, b) => (dbMoves[b].power || 0) - (dbMoves[a].power || 0));
@@ -118,7 +122,7 @@ const getEliteMoves = window.getEliteMoves = (monster, level, dbMoves) => {
     const equipped = attack.slice(0, 2);
     const third = support[0] || attack[2];
     if (third) equipped.push(third);
-    return equipped.length ? equipped : [STARTER_MOVES[monster.type]];
+    return equipped.length ? equipped : [starter];
 };
 
 // ステータス補正（SPEC 4.10）
