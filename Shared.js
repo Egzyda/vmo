@@ -184,15 +184,15 @@ const Modal = window.Modal = ({ title, children, onClose }) => {
     );
 };
 
-const ResultModal = window.ResultModal = ({ result, onExit }) => {
+const ResultModal = window.ResultModal = ({ result, onExit, exitLabel = 'RETURN TO TITLE' }) => {
     if (!result) return null;
     return (
         <div className="absolute inset-0 z-[200] bg-black/80 flex flex-col items-center justify-center animate-fade-in">
             <h1 className={`text-6xl font-teko font-bold tracking-widest mb-4 ${result === 'win' ? 'text-yellow-400' : 'text-blue-400'}`}>
                 {result === 'win' ? 'YOU WIN!' : 'YOU LOSE...'}
             </h1>
-            <button onClick={onExit} className="px-8 py-3 bg-white text-black font-bold rounded hover:scale-105 transition font-teko text-xl tracking-wider">
-                RETURN TO TITLE
+            <button onClick={() => onExit(result)} className="px-8 py-3 bg-white text-black font-bold rounded hover:scale-105 transition font-teko text-xl tracking-wider">
+                {exitLabel}
             </button>
         </div>
     );

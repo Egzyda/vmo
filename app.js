@@ -434,6 +434,16 @@ const App = () => {
                         {/* メニューボタンエリア */}
                         <div className="w-full max-w-sm space-y-3 perspective-1000">
 
+                            {/* Adventure Mode */}
+                            <button onClick={() => setView('adventure')} className="group relative w-full py-4 bg-slate-900/40 backdrop-blur-md border border-amber-500/30 rounded overflow-hidden transition-all duration-300 hover:scale-105 hover:bg-amber-900/30 hover:border-amber-400 hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent -translate-x-full group-hover:animate-shine"></div>
+                                <div className="flex items-center justify-center gap-3">
+                                    <span className="w-1.5 h-1.5 bg-amber-400 rounded-full shadow-[0_0_5px_orange]"></span>
+                                    <span className="font-teko text-2xl font-bold tracking-widest text-amber-100 group-hover:text-white">ADVENTURE MODE</span>
+                                    <span className="w-1.5 h-1.5 bg-amber-400 rounded-full shadow-[0_0_5px_orange]"></span>
+                                </div>
+                            </button>
+
                             {/* Single Battle */}
                             <button onClick={() => setShowDifficultySelect(true)} className="group relative w-full py-4 bg-slate-900/40 backdrop-blur-md border border-cyan-500/30 rounded overflow-hidden transition-all duration-300 hover:scale-105 hover:bg-cyan-900/30 hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]">
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full group-hover:animate-shine"></div>
@@ -499,6 +509,7 @@ const App = () => {
                 </div>
             )}
 
+            {view === 'adventure' && <window.AdventureMode onBack={() => setView('title')} dbMonsters={dbMonsters} dbMoves={dbMoves} />}
             {view === 'online_lobby' && <OnlineLobby onBack={() => setView('title')} onGameStart={handleOnlineStart} />}
             {view === 'encyclopedia' && <Encyclopedia onBack={() => setView('title')} dbMonsters={dbMonsters} dbMoves={dbMoves} />}
             {view === 'team' && <TeamBuilder savedTeams={savedTeams} currentTeamIndex={currentTeamIndex} setCurrentTeamIndex={setCurrentTeamIndex} updateTeam={updateTeam} onBack={() => setView('title')} dbMonsters={dbMonsters} dbMoves={dbMoves} />}

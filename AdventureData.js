@@ -20,7 +20,10 @@ const MAX_LEVEL = window.MAX_LEVEL = 100;
 
 const getLevelMultiplier = window.getLevelMultiplier = (level) => {
     // Lv1=0.3, Lv100=1.0
-    return 0.3 + (Math.max(1, level) - 1) * 0.007;
+    // SPEC の 0.007 刻みだと Lv100 で 0.993 にしかならず、
+    // カンストしても種族値に届かない（PvPの数値と一致しない）ため 0.7/99 で刻む
+    const lv = Math.max(1, Math.min(MAX_LEVEL, level));
+    return 0.3 + (lv - 1) * (0.7 / (MAX_LEVEL - 1));
 };
 
 const getRequiredExp = window.getRequiredExp = (level) => {
