@@ -3,7 +3,7 @@ window.dbMonsters =
   {
     "id": 1,
     "name": "フレイミー",
-    "type": "🔥",
+    "type": "fire",
     "hp": 130,
     "atk": 115,
     "def": 65,
@@ -15,7 +15,7 @@ window.dbMonsters =
   {
     "id": 2,
     "name": "エンガール",
-    "type": "🔥",
+    "type": "fire",
     "hp": 150,
     "atk": 120,
     "def": 80,
@@ -27,7 +27,7 @@ window.dbMonsters =
   {
     "id": 3,
     "name": "ウォータル",
-    "type": "💧",
+    "type": "water",
     "hp": 200,
     "atk": 65,
     "def": 130,
@@ -39,7 +39,7 @@ window.dbMonsters =
   {
     "id": 4,
     "name": "スイネーク",
-    "type": "💧",
+    "type": "water",
     "hp": 160,
     "atk": 105,
     "def": 95,
@@ -51,7 +51,7 @@ window.dbMonsters =
   {
     "id": 5,
     "name": "ハッパンク",
-    "type": "🌿",
+    "type": "grass",
     "hp": 180,
     "atk": 95,
     "def": 110,
@@ -63,7 +63,7 @@ window.dbMonsters =
   {
     "id": 6,
     "name": "リーファム",
-    "type": "🌿",
+    "type": "grass",
     "hp": 120,
     "atk": 90,
     "def": 70,
@@ -75,7 +75,7 @@ window.dbMonsters =
   {
     "id": 7,
     "name": "ライトラ",
-    "type": "✨",
+    "type": "light",
     "hp": 150,
     "atk": 125,
     "def": 75,
@@ -87,7 +87,7 @@ window.dbMonsters =
   {
     "id": 8,
     "name": "アカリード",
-    "type": "✨",
+    "type": "light",
     "hp": 140,
     "atk": 70,
     "def": 120,
@@ -99,7 +99,7 @@ window.dbMonsters =
   {
     "id": 9,
     "name": "エルダーク",
-    "type": "🟣",
+    "type": "dark",
     "hp": 130,
     "atk": 150,
     "def": 80,
@@ -111,7 +111,7 @@ window.dbMonsters =
   {
     "id": 10,
     "name": "ザルディヴァ",
-    "type": "🟣",
+    "type": "dark",
     "hp": 170,
     "atk": 95,
     "def": 110,
@@ -123,7 +123,7 @@ window.dbMonsters =
   {
     "id": 11,
     "name": "マグマス",
-    "type": "🔥",
+    "type": "fire",
     "hp": 190,
     "atk": 65,
     "def": 125,
@@ -135,7 +135,7 @@ window.dbMonsters =
   {
     "id": 12,
     "name": "イグニルフ",
-    "type": "🔥",
+    "type": "fire",
     "hp": 120,
     "atk": 90,
     "def": 90,
@@ -147,7 +147,7 @@ window.dbMonsters =
   {
     "id": 13,
     "name": "レイコーン",
-    "type": "💧",
+    "type": "water",
     "hp": 140,
     "atk": 130,
     "def": 60,
@@ -159,7 +159,7 @@ window.dbMonsters =
   {
     "id": 14,
     "name": "コペゾー",
-    "type": "💧",
+    "type": "water",
     "hp": 170,
     "atk": 90,
     "def": 115,
@@ -171,7 +171,7 @@ window.dbMonsters =
   {
     "id": 15,
     "name": "グラシオン",
-    "type": "🌿",
+    "type": "grass",
     "hp": 180,
     "atk": 145,
     "def": 65,
@@ -183,7 +183,7 @@ window.dbMonsters =
   {
     "id": 16,
     "name": "ツルギ",
-    "type": "🌿",
+    "type": "grass",
     "hp": 125,
     "atk": 120,
     "def": 85,
@@ -195,7 +195,7 @@ window.dbMonsters =
   {
     "id": 17,
     "name": "ボルクマ",
-    "type": "✨",
+    "type": "light",
     "hp": 160,
     "atk": 125,
     "def": 85,
@@ -207,7 +207,7 @@ window.dbMonsters =
   {
     "id": 18,
     "name": "リフェロス",
-    "type": "✨",
+    "type": "light",
     "hp": 150,
     "atk": 100,
     "def": 100,
@@ -219,7 +219,7 @@ window.dbMonsters =
   {
     "id": 19,
     "name": "フィンレーツ",
-    "type": "🟣",
+    "type": "dark",
     "hp": 110,
     "atk": 130,
     "def": 50,
@@ -231,7 +231,7 @@ window.dbMonsters =
   {
     "id": 20,
     "name": "デヴィートル",
-    "type": "🟣",
+    "type": "dark",
     "hp": 160,
     "atk": 100,
     "def": 100,
@@ -243,7 +243,7 @@ window.dbMonsters =
   {
     "id": 21,
     "name": "ミレメント",
-    "type": "⚪",
+    "type": "normal",
     "hp": 150,
     "atk": 95,
     "def": 95,
@@ -255,7 +255,7 @@ window.dbMonsters =
   {
     "id": 22,
     "name": "フラビット",
-    "type": "🌿",
+    "type": "grass",
     "hp": 180,
     "atk": 100,
     "def": 120,
@@ -267,7 +267,7 @@ window.dbMonsters =
   {
     "id": 23,
     "name": "ベルフレム",
-    "type": "🔥",
+    "type": "fire",
     "hp": 160,
     "atk": 135,
     "def": 95,
@@ -279,7 +279,7 @@ window.dbMonsters =
   {
     "id": 24,
     "name": "オヌ・リン",
-    "type": "✨",
+    "type": "light",
     "hp": 150,
     "atk": 120,
     "def": 100,
@@ -291,7 +291,7 @@ window.dbMonsters =
   {
     "id": 25,
     "name": "ロクザール",
-    "type": "🔥",
+    "type": "fire",
     "hp": 150,
     "atk": 120,
     "def": 80,
@@ -303,7 +303,7 @@ window.dbMonsters =
   {
     "id": 26,
     "name": "ペパザール",
-    "type": "💧",
+    "type": "water",
     "hp": 150,
     "atk": 80,
     "def": 120,
@@ -315,7 +315,7 @@ window.dbMonsters =
   {
     "id": 27,
     "name": "シザール",
-    "type": "🌿",
+    "type": "grass",
     "hp": 150,
     "atk": 80,
     "def": 80,
@@ -327,7 +327,7 @@ window.dbMonsters =
   {
     "id": 28,
     "name": "ジェケイダ",
-    "type": "🔥",
+    "type": "fire",
     "hp": 130,
     "atk": 90,
     "def": 70,
@@ -339,7 +339,7 @@ window.dbMonsters =
   {
     "id": 29,
     "name": "ハナーネ",
-    "type": "🌿",
+    "type": "grass",
     "hp": 180,
     "atk": 75,
     "def": 125,
@@ -351,7 +351,7 @@ window.dbMonsters =
   {
     "id": 30,
     "name": "ビョウゲツ",
-    "type": "💧",
+    "type": "water",
     "hp": 140,
     "atk": 110,
     "def": 90,
@@ -363,7 +363,7 @@ window.dbMonsters =
   {
     "id": 31,
     "name": "シカバラス",
-    "type": "⚪",
+    "type": "normal",
     "hp": 150,
     "atk": 80,
     "def": 110,
@@ -375,7 +375,7 @@ window.dbMonsters =
   {
     "id": 32,
     "name": "オベアー",
-    "type": "🟣",
+    "type": "dark",
     "hp": 190,
     "atk": 135,
     "def": 95,
@@ -387,7 +387,7 @@ window.dbMonsters =
   {
     "id": 33,
     "name": "シャコマル",
-    "type": "💧",
+    "type": "water",
     "hp": 145,
     "atk": 150,
     "def": 90,
@@ -399,7 +399,7 @@ window.dbMonsters =
   {
     "id": 34,
     "name": "リュミエット",
-    "type": "✨",
+    "type": "light",
     "hp": 140,
     "atk": 120,
     "def": 75,
@@ -411,7 +411,7 @@ window.dbMonsters =
   {
     "id": 40,
     "name": "ジェリスタル",
-    "type": "💧",
+    "type": "water",
     "hp": 200,
     "atk": 80,
     "def": 100,
@@ -423,7 +423,7 @@ window.dbMonsters =
   {
     "id": 41,
     "name": "ヒノエナガ",
-    "type": "🔥",
+    "type": "fire",
     "hp": 120,
     "atk": 110,
     "def": 90,
@@ -435,7 +435,7 @@ window.dbMonsters =
   {
     "id": 43,
     "name": "アルブラン",
-    "type": "🌿",
+    "type": "grass",
     "hp": 110,
     "atk": 115,
     "def": 130,
@@ -447,7 +447,7 @@ window.dbMonsters =
   {
     "id": 44,
     "name": "エルシェント",
-    "type": "✨",
+    "type": "light",
     "hp": 170,
     "atk": 100,
     "def": 110,
@@ -459,7 +459,7 @@ window.dbMonsters =
   {
     "id": 45,
     "name": "ハリースト",
-    "type": "🟣",
+    "type": "dark",
     "hp": 120,
     "atk": 85,
     "def": 110,
@@ -471,7 +471,7 @@ window.dbMonsters =
   {
     "id": 46,
     "name": "バラビィ",
-    "type": "🔥",
+    "type": "fire",
     "hp": 130,
     "atk": 130,
     "def": 85,
@@ -483,7 +483,7 @@ window.dbMonsters =
   {
     "id": 48,
     "name": "モモ",
-    "type": "🌿",
+    "type": "grass",
     "hp": 150,
     "atk": 85,
     "def": 120,
@@ -495,7 +495,7 @@ window.dbMonsters =
   {
     "id": 49,
     "name": "ツキネ",
-    "type": "✨",
+    "type": "light",
     "hp": 125,
     "atk": 90,
     "def": 85,
@@ -507,7 +507,7 @@ window.dbMonsters =
   {
     "id": 50,
     "name": "ウィデビット",
-    "type": "🟣",
+    "type": "dark",
     "hp": 120,
     "atk": 110,
     "def": 110,
@@ -519,7 +519,7 @@ window.dbMonsters =
   {
     "id": 51,
     "name": "アッピオン",
-    "type": "🔥",
+    "type": "fire",
     "hp": 150,
     "atk": 120,
     "def": 100,
@@ -531,7 +531,7 @@ window.dbMonsters =
   {
     "id": 52,
     "name": "ユッキング",
-    "type": "💧",
+    "type": "water",
     "hp": 160,
     "atk": 110,
     "def": 115,
@@ -543,7 +543,7 @@ window.dbMonsters =
   {
     "id": 53,
     "name": "シバフールー",
-    "type": "🌿",
+    "type": "grass",
     "hp": 155,
     "atk": 80,
     "def":125,
@@ -555,7 +555,7 @@ window.dbMonsters =
   {
     "id": 54,
     "name": "ストロビー",
-    "type": "✨",
+    "type": "light",
     "hp": 135,
     "atk": 130,
     "def": 80,
@@ -567,7 +567,7 @@ window.dbMonsters =
   {
     "id": 55,
     "name": "モスパーク",
-    "type": "🟣",
+    "type": "dark",
     "hp": 140,
     "atk": 90,
     "def": 55,
@@ -579,7 +579,7 @@ window.dbMonsters =
   {
     "id": 999,
     "name": "ヴァーサス",
-    "type": "⚪",
+    "type": "normal",
     "hp": 9999,
     "atk": 150,
     "def": 150,

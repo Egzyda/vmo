@@ -1,6 +1,6 @@
 const { useState, useEffect, useRef } = React;
 const { doc, onSnapshot, updateDoc } = window.fb;
-const { db, BigMonsterCard, optimizeEnemyLead, getGeminiLead } = window;
+const { db, BigMonsterCard, optimizeEnemyLead, getGeminiLead, normalizePartyTypes } = window;
 
 const MemberSelection = ({ myParty, enemyParty, onComplete, onBack, isOnline, roomId, role, difficulty }) => {
      const [currentParty, setCurrentParty] = useState(myParty);
@@ -24,7 +24,8 @@ const MemberSelection = ({ myParty, enemyParty, onComplete, onBack, isOnline, ro
              const saved = localStorage.getItem(`vmo_party_${i}`);
              if (saved) {
                  try {
-                     const parsed = JSON.parse(saved);
+                     // 旧セーブは絵文字typeを持つため正規化する
+                     const parsed = normalizePartyTypes(JSON.parse(saved));
                      teams[i] = parsed;
                      if (JSON.stringify(parsed) === currentJson) {
                          foundSlot = i;
@@ -57,8 +58,9 @@ const MemberSelection = ({ myParty, enemyParty, onComplete, onBack, isOnline, ro
          const unsub = onSnapshot(doc(db, "battles", roomId), (doc) => {
              const data = doc.data();
              if (!data) return;
+             // 相手が旧バージョン(絵文字type)のクライアントの可能性があるため正規化する
              const opponentPartyRaw = role === 'host' ? data.guestParty : data.hostParty;
-             if (opponentPartyRaw) setOnlineOpponentParty(opponentPartyRaw);
+             if (opponentPartyRaw) setOnlineOpponentParty(normalizePartyTypes(opponentPartyRaw));
 
              const myField = role === 'host' ? data.hostField : data.guestField;
              const opField = role === 'host' ? data.guestField : data.hostField;
@@ -69,7 +71,7 @@ const MemberSelection = ({ myParty, enemyParty, onComplete, onBack, isOnline, ro
              if (myField && opField) {
                  const myP = role === 'host' ? data.hostParty : data.guestParty;
                  const enP = role === 'host' ? data.guestParty : data.hostParty;
-                 onComplete(myField, opField, myP, enP);
+                 onComplete(myField, opField, normalizePartyTypes(myP), normalizePartyTypes(enP));
              }
          });
          return () => unsub();

@@ -215,6 +215,9 @@ const App = () => {
                                         ...mon,
                                         name: latestData.name,
                                         img: latestData.img,
+                                        // type は必ず最新データで上書きする。
+                                        // 旧セーブは絵文字ID（🔥等）を保持しており、放置すると相性判定が壊れる
+                                        type: latestData.type,
                                         maxHp: latestData.hp,
                                         atk: latestData.atk,
                                         def: latestData.def,
@@ -330,10 +333,10 @@ const App = () => {
                                 <div className="bg-slate-800 p-2 rounded">
                                     <span className="text-red-400 font-bold">WEAKNESS (x1.5 Damage)</span>
                                     <ul className="mt-1 space-y-0.5 text-gray-300">
-                                        <li>🔥 <span className="text-gray-500">→</span> 🌿 (炎は草に強い)</li>
-                                        <li>🌿 <span className="text-gray-500">→</span> 💧 (草は水に強い)</li>
-                                        <li>💧 <span className="text-gray-500">→</span> 🔥 (水は炎に強い)</li>
-                                        <li>✨ <span className="text-gray-500">⇄</span> 🟣 (光と闇は互いに弱点)</li>
+                                        <li>炎 <span className="text-gray-500">→</span> 草 (炎は草に強い)</li>
+                                        <li>草 <span className="text-gray-500">→</span> 水 (草は水に強い)</li>
+                                        <li>水 <span className="text-gray-500">→</span> 炎 (水は炎に強い)</li>
+                                        <li>光 <span className="text-gray-500">⇄</span> 闇 (光と闇は互いに弱点)</li>
                                     </ul>
                                 </div>
                                 <div className="bg-slate-800 p-2 rounded">

@@ -35,7 +35,7 @@ const BigMonsterCard = window.BigMonsterCard = ({ monster, isSelected, index, on
                     <img src={monster.img} className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
                 ) : (
                     <div className={`w-full h-full ${typeBg} opacity-20 flex items-center justify-center`}>
-                        <span className="text-4xl opacity-50">{monster.type}</span>
+                        <span className="text-4xl opacity-50">{TYPE_NAMES[monster.type] || ''}</span>
                     </div>
                 )}
                 <div className="absolute top-0 inset-x-0 h-8 bg-gradient-to-b from-slate-900/80 to-transparent pointer-events-none"></div>
@@ -101,8 +101,8 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isS
         }
     });
 
-    const typeColorClass = TYPE_COLORS[monster.type] || TYPE_COLORS['⚪'];
-    const typeBgClass = TYPE_BG[monster.type] || TYPE_BG['⚪'];
+    const typeColorClass = TYPE_COLORS[monster.type] || TYPE_COLORS['normal'];
+    const typeBgClass = TYPE_BG[monster.type] || TYPE_BG['normal'];
     const Header = () => (
         <div className="flex justify-between items-center mb-1 w-full overflow-hidden">
             <span className={`font-bold text-[10px] tracking-tighter whitespace-nowrap overflow-visible ${typeColorClass.split(' ')[0]}`}>{monster.name}</span>
