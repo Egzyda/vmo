@@ -131,7 +131,7 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isS
                             <ProgressBar current={monster.currentHp} max={monster.maxHp} colorClass={monster.currentHp < monster.maxHp * 0.2 ? 'bg-red-500' : (monster.currentHp < monster.maxHp * 0.5 ? 'bg-yellow-500' : 'bg-green-500')} />
                             <div className="flex justify-end text-xs text-white text-stat text-outline leading-none mt-0.5">{monster.currentHp}/{monster.maxHp}</div>
                         </div>
-                        {monster.isProtected && <div className="absolute inset-0 bg-blue-500/30 border-2 border-blue-400 z-20 flex items-center justify-center font-bold text-blue-200 text-shadow font-teko tracking-widest text-lg">PROTECTION</div>}
+                        {monster.isProtected && <div className="absolute inset-0 bg-blue-500/30 border-2 border-blue-400 z-20"></div>}
                         {monster.isDamaged && <div className="absolute inset-0 bg-red-500/30 mix-blend-overlay anim-shake pointer-events-none"></div>}
                 </div>
                 <div className="flex gap-1 flex-wrap h-4 overflow-hidden items-start mt-0.5 content-start">
