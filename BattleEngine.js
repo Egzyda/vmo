@@ -657,10 +657,16 @@ const BattleEngine = ({
 
     return (
         <div className="app-container pb-6">
+            {/* BATTLE BACKGROUND */}
+            <div className="absolute inset-0 z-0 pointer-events-none">
+                <img src="./img/battle_bg.png" className="w-full h-full object-cover opacity-60" alt="" />
+                <div className="absolute inset-0 bg-slate-950/40"></div>
+            </div>
+
             <ResultModal result={resultModal} onExit={onExit} />
 
             {/* ENEMY AREA */}
-            <div className="h-[25%] relative p-1 flex flex-col justify-end bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-700 flex-none mt-4">
+            <div className="h-[25%] relative z-10 p-1 flex flex-col justify-end bg-gradient-to-b from-slate-800/75 to-slate-900/75 border-b border-slate-700 flex-none mt-4">
                 {/* Enemy Bench Status */}
                 <div className="absolute top-2 right-1 flex flex-col gap-2 z-10 w-16">
                     {enemyState.map((m, i) => {
@@ -723,7 +729,7 @@ const BattleEngine = ({
             </div>
 
             {/* PLAYER AREA */}
-            <div className="flex-1 relative p-1 flex flex-col justify-end min-h-[80px] bg-slate-900 pt-8">
+            <div className="flex-1 relative z-10 p-1 flex flex-col justify-end min-h-[80px] bg-slate-900/70 pt-8">
                 {/* My Bench Status */}
                 <div className="absolute top-2 right-1 flex flex-col gap-2 z-10 w-16">
                     {myState.map((m, i) => {
