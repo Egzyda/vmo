@@ -102,7 +102,7 @@ const TOLERANCE = 10;
 
 ### 2.3 アドベンチャー専用技（下位互換）
 
-属性ごとに1つ。カテゴリは全て `physical`。
+属性ごとに1つ。カテゴリは全て `physical`。捕獲直後のヴァーモンが最初に知っている唯一の技（4.14参照）。
 
 | 技名 | 属性 | 威力 |
 |------|------|------|
@@ -168,6 +168,10 @@ function calculateDamage(actor, target, move, rng) {
 
 ### 4.3 レベルシステム
 
+> [!NOTE]
+> MAX_LEVELは100を維持する（50への引き下げは検討したが、クリア後コンテンツ用の伸びしろが無くなるため見送り）。
+> メインストーリー（1〜30階目、ラスボス:ヴァーサス）はLv50前後で足りるように調整し、Lv50〜100はクリア後のやり込み専用に残す。
+
 ```javascript
 const MAX_LEVEL = 100;
 
@@ -180,6 +184,15 @@ function getRequiredExp(level) {
   return Math.floor(10 * Math.pow(level, 1.8));
 }
 ```
+
+#### 想定レベル帯（暫定、線形補間・プレイテストで調整）
+
+| フロア位置 | 想定Lv |
+|-----------|--------|
+| 1階目（B30、初回リリース開始） | 〜5 |
+| 11階目（B20、初回リリース終端） | 〜20 |
+| 30階目（B1、ヴァーサス戦） | 〜50 |
+| クリア後コンテンツ | Lv50〜100 |
 
 ### 4.4 経験値システム
 
@@ -213,21 +226,39 @@ function getExp(baseExp, myLevel, enemyLevel) {
 
 ### 4.5 仲間加入
 
+基礎捕獲率に加えて、**相手のレベルが高いほど捕獲しにくくなる**補正を導入する（終盤の高レベル個体を無条件で捕まえられないようにするため）。
+
 ```javascript
 const CAPTURE_RATES = {
-  normal: 0.30,  // 通常: 30%
-  boss: 0.10     // ボス: 10%
+  normal: 0.30, // 通常の野生ヴァーモン
+  elite: 0.15,  // 強化個体（エリート戦闘）
+  boss: 0.10    // フロアボス
 };
 
-// アイテム補正
-const CAPTURE_ITEMS = {
-  "フレンドチャーム": 1.5,   // ×1.5
-  "マスターチャーム": 3.0    // ×3.0
+// 同調デバイス（捕獲率アイテム）。Mk-Vのみ確定捕獲でレベル補正を無視する
+const CAPTURE_DEVICES = {
+  "同調デバイス Mk-I":   1.3,
+  "同調デバイス Mk-II":  1.8,
+  "同調デバイス Mk-III": 2.4,
+  "同調デバイス Mk-IV":  3.0,
+  "同調デバイス Mk-V":   "guaranteed" // 100%固定
 };
+
+function getCaptureRate(tier, targetLevel, deviceName = null) {
+  const device = deviceName ? CAPTURE_DEVICES[deviceName] : 1;
+  if (device === "guaranteed") return 1.0;
+
+  const base = CAPTURE_RATES[tier];
+  const levelPenalty = Math.max(0.3, 1 - (targetLevel - 1) * 0.008); // Lv100で最低0.3倍まで低下
+  return Math.min(1, base * levelPenalty * device);
+}
 // 同一モンスターは1体のみ
 ```
 
 ### 4.6 ショップ
+
+> [!IMPORTANT]
+> アイテムはバトル中は使用不可。拠点・休憩でのみ使用できる。
 
 ```javascript
 // 通貨: 円（乱数幅あり）
@@ -238,11 +269,18 @@ function getDropMoney(enemyLevel) {
 }
 
 const SHOP_ITEMS = [
-  { name: "回復薬", price: 100, effect: "HP50%回復" },
-  { name: "万能薬", price: 200, effect: "HP100%回復" },
-  { name: "フレンドチャーム", price: 500, effect: "捕獲率1.5倍" },
-  { name: "マスターチャーム", price: 5000, effect: "捕獲率3倍" }
+  { name: "薬草",         price: 50,   effect: "HP30%回復" },
+  { name: "回復薬",       price: 100,  effect: "HP50%回復" },
+  { name: "アドレナリン", price: 250,  effect: "HP100%回復" },
+  { name: "万能薬",       price: 150,  effect: "状態異常を全回復" },
+  { name: "蘇生器",       price: 300,  effect: "戦闘不能から50%HPで復活" },
+  { name: "同調デバイス Mk-I",   price: 500,   effect: "捕獲率×1.3" },
+  { name: "同調デバイス Mk-II",  price: 1200,  effect: "捕獲率×1.8" },
+  { name: "同調デバイス Mk-III", price: 2500,  effect: "捕獲率×2.4" },
+  { name: "同調デバイス Mk-IV",  price: 5000,  effect: "捕獲率×3.0" },
+  { name: "同調デバイス Mk-V",   price: 15000, effect: "捕獲率100%（確定）" }
 ];
+// 価格は暫定値。プレイテストで調整する
 ```
 
 ### 4.7 セーブシステム
@@ -288,7 +326,7 @@ const SHOP_ITEMS = [
 
 上記の%は初期値であり、プレイテストで調整する前提の暫定値。
 
-- **休憩**: HP30%回復、技入れ替え可
+- **休憩**: HP30%回復のみ（技・パーティ入れ替えは不可。4.17拠点を参照）
 - **休憩回数**: 階層ごとに決まった回数まで（例: B30=2回、B25=3回）
 - **ボス**: 各階最後に固定ボス（ノード選択を挟まず必ず遭遇）
 
@@ -321,10 +359,10 @@ const DOUBLE_ENCOUNTER_TABLE = {
 | パターン | 説明 | 補正 |
 |----------|------|------|
 | 通常戦闘 | 野生ヴァーモン1〜2体（上記テーブルに従う） | - |
-| エリート戦闘 | 強化された野生ヴァーモン、または既にヴァーサスに改造された研究員（最大4体編成のトレーナー戦）。数階層ごとにボス級として配置 | HP/ステ強化、報酬UP |
+| エリート戦闘 | 強化された野生ヴァーモン／雑魚研究員／エリート研究員のいずれかを抽選（下記4.16参照） | HP/ステ強化、報酬UP |
 | ボス戦 | 各フロア最後の固定ボス1体 | HP/ステ×1.5倍 |
 
-- **改造研究員**: 個性は設けない（使い回し可能な汎用トレーナー戦）。既存の対戦用バトルエンジン（4vs4パーティ制）をそのまま流用する
+- **改造研究員**: 個性は設けないが、**雑魚研究員とエリート研究員の2段階**を用意する。雑魚研究員は野生の雑魚戦と同等の弱い編成、エリート研究員はアーキタイプチーム（4.16）を使う本気の編成。深い階層に進むほどエリート研究員の出現比率が上がる
 - **難易度方針**: ボス単体を歪に強くするのではなく、2体エンカウント率とエリート出現率を主なレバーにする。手持ちの層が薄いパーティほど同時多体戦で崩れやすく、「ちゃんと仲間を集めてレベルを整えていればイーブン、サボると厳しい」という難易度カーブを狙う
 
 ### 4.11 階層構成（B30-B20）
@@ -361,6 +399,89 @@ const DOUBLE_ENCOUNTER_TABLE = {
 - 地上エリアの探索（本編と同じノード選択システムを流用）
 - 強力な個体・専用ボスとの対峙
 - 図鑑コンプリートの最終ピース
+- 敵の想定レベルはLv50前提（4.3参照）で、Lv50〜100の育成に意味を持たせる
+
+### 4.14 技の習得システム（プレイヤー側）
+
+捕獲直後は下位技（2.3）を1つだけ知っている状態からスタートする。以降、レベルアップでプレイヤーが好きな技を選んで習得していく（習得順を配列順に固定しない＝どのモンスターも「攻撃技だけ先に並んでいる」保証がないため、選択制にすることで解決する）。
+
+```javascript
+const MOVE_LEARN_CHECKPOINTS = [3, 9, 15, 21, 27]; // 全モンスター共通。Lv30手前で候補6技を全習得
+```
+
+- 各チェックポイント到達時、まだ知らない候補技（monsters.jsの6技）からプレイヤーが1つ選んで習得
+- 装備（実際にバトルで使う3技）の入れ替えは**拠点でのみ**可能（4.17）。ダンジョン内の休憩ではHP回復のみ
+- **途中加入（例: Lv20で捕獲）の場合**: 通過済みのチェックポイント数ぶんを自動で習得済みにする（順序は4.16の攻撃技優先ロジックを流用）。プレイヤーの選択機会は失われるが、装備は拠点で自由に選べるため実害はない
+
+```javascript
+function getKnownMovesOnCapture(monster, level) {
+  const passedCheckpoints = MOVE_LEARN_CHECKPOINTS.filter(lv => level >= lv).length;
+  const autoOrder = [...monster.moves].sort((a, b) =>
+    (dbMoves[a].category === 'status' ? 1 : 0) - (dbMoves[b].category === 'status' ? 1 : 0)
+  ); // 攻撃技を先に並べる
+  return [STARTER_MOVES[monster.type], ...autoOrder.slice(0, passedCheckpoints)];
+}
+```
+
+### 4.15 野生ヴァーモンの技構成（フロア位置依存）
+
+野生の雑魚戦は**個体のレベルではなくフロアの深さ（潜った階数）**で技構成が決まる。浅い階の実験体ほど未熟、という世界観の演出も兼ねる。
+
+```javascript
+function getWildMoveSet(monster, floorPosition) {
+  const starter = STARTER_MOVES[monster.type];
+  if (floorPosition <= 1) return [starter]; // 1階目: 下位技のみ
+
+  const realCount = Math.min(6, Math.round((floorPosition - 1) / 9 * 6)); // 1→10階目で0→6に線形解放
+  const realMoves = [...monster.moves].sort(() => Math.random() - 0.5).slice(0, Math.min(3, realCount || 1));
+
+  if (floorPosition < 15) return [starter, ...realMoves].slice(0, 3); // 下位技と実技が混在
+  return realMoves.length ? realMoves : [starter]; // 15階目以降: 下位技は使われなくなる
+}
+```
+
+- 1階目: 下位技のみ（最弱）
+- 10階目: 実技が全解放、下位技と混在してランダム抽選
+- 15階目以降: 下位技を使わなくなり、実技のみで構成
+
+### 4.16 エリート/ボス/研究員の技構成（アーキタイプチーム）
+
+エリート・ボス・エリート研究員は「威力の高い技を並べる」だけでなく、**シングルバトルに既にあるディストーションパーティのような、明確なコンセプトを持つ編成**にする。個別に手作業で全モンスター分組むのは非現実的なため、少数のアーキタイプテンプレートを手動で用意し、そこから抽選する。
+
+```javascript
+// エリート個体・フロアボスの技: 威力順の攻撃技2つ+補助技1つを機械的に自動編成
+function getEliteMoves(monster, level) {
+  const known = getKnownMovesOnCapture(monster, level); // 4.14のロジックを流用
+  const attack = known.filter(m => dbMoves[m]?.category !== 'status')
+                       .sort((a, b) => dbMoves[b].power - dbMoves[a].power);
+  const support = known.filter(m => dbMoves[m]?.category === 'status');
+  let equipped = attack.slice(0, 2);
+  equipped.push(support[0] || attack[2]);
+  return equipped.filter(Boolean);
+}
+
+// 雑魚研究員: 野生雑魚と同等の弱い編成（1〜2体、getWildMoveSet相当）
+// エリート研究員: 手動作成したアーキタイプテンプレートから抽選（最大4体、既存の対戦用データをそのまま流用）
+const ARCHETYPE_TEAMS = [
+  // 例: { name: "ディストーション速攻", members: [...] }
+  //     { name: "全体バフ特化", members: [...] }
+  //     { name: "デバフ+削り", members: [...] }
+  //     { name: "プロテクション粘り", members: [...] }
+  // 3〜5個を手動で用意。aiLogic.js の optimizeEnemyLead（ディストーション役の検出）をそのまま流用できる
+];
+```
+
+- 序盤の研究員は雑魚ロジック、深い階に進むほどエリート研究員（アーキタイプ抽選）の比率が上がる（4.10）
+- アーキタイプテンプレートは既存のPvP用データ・ロジックをそのまま転用するため、新規モンスターやモーション追加は不要
+
+### 4.17 拠点（ベース）
+
+ダンジョンに潜る前の拠点。以下はここでのみ行える：
+
+- **パーティ編成**: 手持ち4体の入れ替え（ボックスとの入れ替え含む）
+- **技の装備変更**: そのモンスターが習得済みの技から3つを選んで装備
+- **ショップ利用**: 4.6のアイテム購入
+- **アイテム使用**: バトル中は使えないため、回復・状態異常回復・蘇生はここか休憩でのみ
 
 ---
 
