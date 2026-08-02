@@ -55,5 +55,12 @@ window.dbMoves =
   "弱点解析": { "type": "dark", "power": 60, "priority": 0, "target": "single", "category": "physical", "side_effect": "buff_atk_self", "desc": "攻撃後、自分のATK上昇" },
   "クイックシャドウ": { "type": "dark", "power": 60, "priority": 1, "target": "single", "category": "physical", "desc": "先制攻撃(優先度+1)" },
   "足払い": { "type": "normal", "power": 60, "priority": 0, "target": "single", "category": "physical", "side_effect_target": "debuff_spd_target", "desc": "攻撃後、相手のSPD下降" },
-  "疾風の棘": { "type": "grass", "power": 60, "priority": 1, "target": "single", "category": "physical", "desc": "先制攻撃(優先度+1)" }
+  "疾風の棘": { "type": "grass", "power": 60, "priority": 1, "target": "single", "category": "physical", "desc": "先制攻撃(優先度+1)" },
+
+  "プチファイア": { "type": "fire", "power": 40, "priority": 0, "target": "single", "category": "physical", "adventure_only": true, "desc": "弱い炎の単体攻撃" },
+  "アクアショット": { "type": "water", "power": 40, "priority": 0, "target": "single", "category": "physical", "adventure_only": true, "desc": "弱い水の単体攻撃" },
+  "リーフショット": { "type": "grass", "power": 40, "priority": 0, "target": "single", "category": "physical", "adventure_only": true, "desc": "弱い草の単体攻撃" },
+  "ミニレイ": { "type": "light", "power": 35, "priority": 0, "target": "single", "category": "physical", "adventure_only": true, "desc": "弱い光の単体攻撃" },
+  "シャドウタッチ": { "type": "dark", "power": 35, "priority": 0, "target": "single", "category": "physical", "adventure_only": true, "desc": "弱い闇の単体攻撃" },
+  "タックル": { "type": "normal", "power": 30, "priority": 0, "target": "single", "category": "physical", "adventure_only": true, "desc": "弱い無属性の単体攻撃" }
 }
