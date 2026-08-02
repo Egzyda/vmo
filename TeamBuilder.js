@@ -134,7 +134,7 @@ const TeamBuilder = ({ savedTeams, currentTeamIndex, setCurrentTeamIndex, update
     const filteredMonsters = getFilteredMonsters();
     const sortedMoves = getSortedMoves();
 
-    const types = ['ALL', '🔥', '💧', '🌿', '✨', '🟣', '⚪'];
+    const types = ['ALL', 'fire', 'water', 'grass', 'light', 'dark', 'normal'];
     const sortOptions = [
         { key: 'id', label: 'ID' },
         { key: 'hp', label: 'HP' },
@@ -218,7 +218,7 @@ const TeamBuilder = ({ savedTeams, currentTeamIndex, setCurrentTeamIndex, update
                                                 ? 'bg-gray-200 text-black border border-white shadow-[inset_0_0_5px_rgba(0,0,0,0.1)] z-10'
                                                 : 'bg-slate-800 text-gray-500 border-gray-700 hover:bg-slate-700 hover:text-gray-300'}`}
                                         >
-                                            {t}
+                                            {t === 'ALL' ? 'ALL' : (TYPE_NAMES[t] || t)}
                                         </button>
                                     ))}
                                 </div>
@@ -340,7 +340,7 @@ const TeamBuilder = ({ savedTeams, currentTeamIndex, setCurrentTeamIndex, update
                             </p>
                             {sortedMoves.map((moveName, i) => {
                                 const isSelected = selectedMon.selectedMoves.includes(moveName);
-                                const moveData = dbMoves[moveName] || { type: '⚪', power: 0, category: 'status', desc: '詳細不明' };
+                                const moveData = dbMoves[moveName] || { type: 'normal', power: 0, category: 'status', desc: '詳細不明' };
 
                                 return (
                                     <button

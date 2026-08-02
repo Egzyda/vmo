@@ -665,7 +665,7 @@ const BattleEngine = ({
                 <div className="absolute top-2 right-1 flex flex-col gap-2 z-10 w-16">
                     {enemyState.map((m, i) => {
                         if (enemyField.includes(i) || m.currentHp <= 0) return null;
-                        const tBg = TYPE_BG[m.type] || TYPE_BG['⚪'];
+                        const tBg = TYPE_BG[m.type] || TYPE_BG['normal'];
                         return (
                             <div key={i} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group">
                                 <div className="w-full aspect-square rounded overflow-hidden relative mb-0.5 bg-slate-900">
@@ -728,7 +728,7 @@ const BattleEngine = ({
                 <div className="absolute top-2 right-1 flex flex-col gap-2 z-10 w-16">
                     {myState.map((m, i) => {
                         if (myField.includes(i) || m.currentHp <= 0) return null;
-                        const tBg = TYPE_BG[m.type] || TYPE_BG['⚪'];
+                        const tBg = TYPE_BG[m.type] || TYPE_BG['normal'];
                         return (
                             <div key={i} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group">
                                 <div className="w-full aspect-square rounded overflow-hidden relative mb-0.5 bg-slate-900">
@@ -779,7 +779,7 @@ const BattleEngine = ({
                                     <div className="grid grid-cols-1 gap-1">
                                     {actingMon.selectedMoves.map(m => {
                                         const moveData = dbMoves[m] || {};
-                                        const tBg = TYPE_BG[moveData.type] || TYPE_BG['⚪'];
+                                        const tBg = TYPE_BG[moveData.type] || TYPE_BG['normal'];
                                         const tName = TYPE_NAMES[moveData.type] || '?';
                                         return (
                                         <button key={m} onClick={() => {
@@ -807,7 +807,7 @@ const BattleEngine = ({
                                  const active = myField.includes(i);
                                  const dead = m.currentHp <= 0;
                                  const alreadySelected = phase !== 'switch' && selectedSwitchTargets.includes(i);
-                                 const tBg = TYPE_BG[m.type] || TYPE_BG['⚪'];
+                                 const tBg = TYPE_BG[m.type] || TYPE_BG['normal'];
                                  return (
                                      <button key={i} disabled={active||dead||alreadySelected} onClick={() => {
                                          if(phase==='switch') handleForcedSwitch(i);
