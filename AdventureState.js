@@ -93,6 +93,8 @@ const grantExp = window.grantExp = (instance, amount) => {
 
 // 技を1つ習得する（プレイヤーが選択したもの）
 const learnMove = window.learnMove = (instance, moveName) => {
+    // 覚えられる技が残っていない場合に null が渡ることがある（習得スキップ）
+    if (!moveName) return instance;
     if (instance.knownMoves.includes(moveName)) return instance;
     return { ...instance, knownMoves: [...instance.knownMoves, moveName] };
 };

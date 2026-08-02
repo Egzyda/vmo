@@ -177,13 +177,21 @@ const MAX_LEVEL = 100;
 
 function getLevelMultiplier(level) {
   // Lv1=0.3, Lv100=1.0
-  return 0.3 + (level - 1) * 0.007;
+  // 0.007刻みだとLv100で0.993にしかならず、カンストしても種族値に届かない
+  // （PvPの数値と一致しない）ため 0.7/99 で刻む
+  return 0.3 + (Math.min(MAX_LEVEL, level) - 1) * (0.7 / (MAX_LEVEL - 1));
 }
 
 function getRequiredExp(level) {
   return Math.floor(10 * Math.pow(level, 1.8));
 }
 ```
+
+> [!IMPORTANT]
+> **レベル補正はダメージだけでなくステータス（HP/ATK/DEF/SPD）にもかける。**
+> ダメージのみに補正するとHPが据え置きになり、低レベルほど撃破ターン数が伸びて戦闘が間延びする
+> （実測: Lv1で4.5ターン / Lv100で1.4ターン）。
+> ステータス側にも同じ補正をかけると撃破ターン数がレベル非依存で一定になる（実測1.34ターン）。
 
 #### 想定レベル帯（暫定、節目でジャンプ・プレイテストで調整）
 
@@ -473,8 +481,10 @@ function getWildMoveSet(monster, floorPosition) {
 
 ```javascript
 // エリート個体・フロアボスの技: 威力順の攻撃技2つ+補助技1つを機械的に自動編成
+// 下位技は枠を埋めるだけの弱技なので除外する（「本気の構成」にするため）
 function getEliteMoves(monster, level) {
-  const known = getKnownMovesOnCapture(monster, level); // 4.14のロジックを流用
+  const starter = STARTER_MOVES[monster.type];
+  const known = getKnownMovesOnCapture(monster, level).filter(m => m !== starter);
   const attack = known.filter(m => dbMoves[m]?.category !== 'status')
                        .sort((a, b) => dbMoves[b].power - dbMoves[a].power);
   const support = known.filter(m => dbMoves[m]?.category === 'status');

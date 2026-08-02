@@ -222,7 +222,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
 
             await persist(next);
             if (queue.length) { setLearnQueue(queue); setView('learn'); }
-            else finishBattleStep();
+            else finishBattleStep(next);
         } else {
             // 全滅: 拠点へ強制送還。進捗・所持品は保持（SPEC方針）
             await persist(next);
@@ -238,17 +238,21 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         return order.find(n => (items || {})[n] > 0) || null;
     };
 
-    const finishBattleStep = () => {
+    // currentSave は呼び出し元が persist した直後の最新値を渡すこと。
+    // React の state 更新は非同期なので、ここで closure の `save` を読むと
+    // 直前に確定した報酬（所持金・経験値・捕獲）を巻き戻してしまう。
+    const finishBattleStep = (currentSave) => {
+        const s = currentSave || save;
         const wasBoss = battle && battle.isBoss;
         setBattle(null);
         if (wasBoss) {
             (async () => {
-                const cleared = [...new Set([...save.clearedFloors, run.floorPos])];
+                const cleared = [...new Set([...s.clearedFloors, run.floorPos])];
                 const nextPos = Math.min(W.FLOORS.length, run.floorPos + 1);
                 await persist({
-                    ...save,
+                    ...s,
                     clearedFloors: cleared,
-                    currentFloorPosition: Math.max(save.currentFloorPosition, nextPos)
+                    currentFloorPosition: Math.max(s.currentFloorPosition, nextPos)
                 });
                 setRun(null);
                 setView('base');
@@ -272,7 +276,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             ? [{ ...head, count: remaining }, ...learnQueue.slice(1)]
             : learnQueue.slice(1);
         setLearnQueue(q);
-        if (q.length === 0) finishBattleStep();
+        if (q.length === 0) finishBattleStep(next);
     };
 
     // ================= 描画 =================
