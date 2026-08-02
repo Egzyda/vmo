@@ -574,12 +574,25 @@ const ARCHETYPE_TEAMS = [
 
 ## 7. 実装順序
 
-1. Phase 0: 属性文字列ID化
-2. Phase 1: 対戦背景追加
-3. Phase 2: アドベンチャー基盤+Firebase Auth
-4. Phase 3: ダンジョンB30-B20
-5. Phase 4: 技演出
-
 > [!NOTE]
-> 旧Phase「技4つ対応」「6ステータス化」は廃止。
-> ステータス4軸・技3つは現行のまま維持する方針に決定。
+> 旧Phase「技4つ対応」「6ステータス化」は廃止。ステータス4軸・技3つは現行のまま維持する方針に決定。
+
+以前のPhase分けは粒度が粗すぎたため、実際の作業単位に合わせて分割する。**各Phaseの終わりに必ず対戦モード（既存PvP）が壊れていないことを手動確認してから次に進む**（`BattleEngine.js`/`Shared.js`/`gameLogic.js`/`monsters.js`/`moves.js`は対戦モードと共有のため、ここを触るPhaseは特に注意）。
+
+1. **Phase 0**: 属性文字列ID化（絵文字→英語ID、バッジ表示）
+2. **Phase 1**: 対戦背景追加（`img/battle_bg.webp`、UI差し替えのみ）
+3. **Phase 2**: データ基盤（`AdventureData.js`新規作成）
+   - 下位技6つを`moves.js`に追加
+   - `STARTER_MOVES` / `MOVE_LEARN_CHECKPOINTS` / `DOUBLE_ENCOUNTER_TABLE` / `CAPTURE_RATES`（`AdventureCapture.js`は実装済み）
+   - フロアデータ（B30〜B1、名称・戦闘数・休憩・ボス・野生種）をB30-B20実データ+B19-B1ゾーンデータで構造化
+4. **Phase 3**: 拠点+セーブ（`AdventureMode.js`）
+   - Firestore `users/{uid}/adventure/save`（`party`/`box`/`money`/`clearedFloors`/`currentFloor`/`seenIds`）
+   - パーティ編成・技装備変更・ショップUI（4.17）
+5. **Phase 4**: 探索フェーズ（ノード選択UI）
+   - 4択＋ヒント表示、罠システム、探索テキスト演出（4.12）
+6. **Phase 5**: アドベンチャー戦闘（`AdventureBattle.js`）
+   - レベル補正ダメージ計算、`getWildMoveSet`/`getEliteMoves`/アーキタイプチーム
+   - 捕獲UI（`AdventureCapture.js`と接続）
+7. **Phase 6**: B30〜B20 実装+プレイテスト（初回リリーススコープ）
+8. **Phase 7**: 技演出（CSS/SVGアニメーション）
+9. **Phase 8**（続編）: B19〜B1 実装
