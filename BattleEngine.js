@@ -1,11 +1,12 @@
 const { useState, useEffect, useRef } = React;
 const { doc, onSnapshot, updateDoc } = window.fb;
-const { db, ResultModal, ProgressBar, MonsterCard, getStatMultiplier, getTypeMultiplier, createLCG, CONSTANTS, TYPE_BG, TYPE_NAMES, getBestAIAction, getGeminiAction } = window;
+const { db, ResultModal, ProgressBar, MonsterCard, getStatMultiplier, getTypeMultiplier, createLCG, CONSTANTS, TYPE_BG, TYPE_NAMES, getBestAIAction, getGeminiAction, getLevelMultiplier } = window;
 
 const BattleEngine = ({
     myParty, enemyParty, initialMyField, initialEnemyField,
     onExit, dbMoves, isOnline, roomId, role, dbMonsters, difficulty,
-    gameRules = { flatDamageBonus: 2, minDamage: 0 }
+    gameRules = { flatDamageBonus: 2, minDamage: 0 },
+    adventureMode = false
 }) => {
      const safeMyParty = myParty || [];
      const safeEnemyParty = enemyParty || [];
@@ -324,9 +325,15 @@ const BattleEngine = ({
                                 const typeMod = getTypeMultiplier(moveData.type, targetMon.type, moveData.special_type);
                                 damage = Math.floor(damage * typeMod);
 
+                                // アドベンチャーのみ: レベル補正（PvPは actor.level が無いので素通り）
+
+
                                 if (actor.level) {
-                                    const levelScale = 0.2 + (actor.level / 50) * 0.8;
-                                    damage = Math.floor(damage * Math.min(1.0, levelScale));
+
+
+                                    damage = Math.floor(damage * getLevelMultiplier(actor.level));
+
+
                                 }
 
                                 if (gameRules.minDamage) {
@@ -354,9 +361,15 @@ const BattleEngine = ({
 
                             let damage = Math.floor((atk * power / def / 2));
 
+                            // アドベンチャーのみ: レベル補正（PvPは actor.level が無いので素通り）
+
+
                             if (actor.level) {
-                                const levelScale = 0.2 + (actor.level / 50) * 0.8;
-                                damage = Math.floor(damage * Math.min(1.0, levelScale));
+
+
+                                damage = Math.floor(damage * getLevelMultiplier(actor.level));
+
+
                             }
 
                             const typeMod = getTypeMultiplier(moveData.type, targetMon.type, moveData.special_type);
@@ -663,7 +676,11 @@ const BattleEngine = ({
                 <div className="absolute inset-0 bg-slate-950/40"></div>
             </div>
 
-            <ResultModal result={resultModal} onExit={onExit} />
+            <ResultModal
+                result={resultModal}
+                exitLabel={adventureMode ? 'CONTINUE' : 'RETURN TO TITLE'}
+                onExit={(res) => onExit(res, myStateRef.current)}
+            />
 
             {/* ENEMY AREA */}
             <div className="h-[25%] relative z-10 p-1 flex flex-col justify-end bg-gradient-to-b from-slate-800/75 to-slate-900/75 border-b border-slate-700 flex-none mt-4">
