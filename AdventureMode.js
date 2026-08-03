@@ -16,6 +16,14 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [learnQueue, setLearnQueue] = useState([]); // [{ partyIndex, count }]
     const [captureQueue, setCaptureQueue] = useState([]); // 未所持の撃破相手
     const [captureResult, setCaptureResult] = useState(null); // { name, success }
+    // 罠・アイテムなどのイベントは画面中央のモーダルで見せる（トーストだと見落とす）
+    const [event, setEvent] = useState(null); // { icon, title, desc, tone }
+    // 探索中に開けるサブパネル（道具 / 手持ち）
+    const [panel, setPanel] = useState(null); // null|'items'|'party'
+    const [detailMon, setDetailMon] = useState(null); // MonsterDetailModal 用
+    const [movePartyIndex, setMovePartyIndex] = useState(null); // 技入れ替え対象
+    const [pendingLearn, setPendingLearn] = useState(null); // 装備満杯時の入れ替え選択中の技名
+    const logEndRef = useRef(null);
 
     const baseOf = (id) => dbMonsters.find(m => m.id === id);
 
@@ -30,6 +38,11 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         })();
         return () => { alive = false; };
     }, []);
+
+    // ログが増えたら最新行まで送る
+    useEffect(() => {
+        if (logEndRef.current) logEndRef.current.scrollIntoView({ block: 'end' });
+    }, [run && run.log ? run.log.length : 0, view]);
 
     const persist = async (next) => {
         setSave(next);
@@ -72,8 +85,15 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         if (!floor) return;
         const alive = save.party.filter(m => m.currentHp > 0);
         if (alive.length === 0) { flash('戦えるヴァーモンがいない。拠点で回復しよう'); return; }
-        setRun({ floorPos, step: 0, restsLeft: floor.rests, hints: rollHints() });
+        setRun({ floorPos, step: 0, restsLeft: floor.rests, hints: rollHints(), log: [] });
+        setPanel(null);
+        setEvent(null);
         setView('dungeon');
+    };
+
+    // フロア内で起きたことをクリアまで残す（何をしてきたか見返せるように）
+    const addLog = (text, tone = 'info') => {
+        setRun(r => r ? { ...r, log: [...(r.log || []), { text, tone }] } : r);
     };
 
     // 4択それぞれの結果を先に確定し、ヒントだけ提示する（SPEC 4.8）
@@ -154,24 +174,53 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         const outcome = run.hints[choiceId];
         const flavor = W.pickFlavor(outcome);
         if (outcome === 'normal' || outcome === 'elite') {
-            if (flavor) flash(flavor);
+            addLog(outcome === 'elite' ? '強化個体と遭遇した' : 'ヴァーモンと遭遇した', outcome === 'elite' ? 'bad' : 'info');
             enterBattle(outcome);
         } else if (outcome === 'item') {
             const cheap = W.SHOP_ITEMS.filter(i => i.price <= 300);
             const got = cheap[Math.floor(Math.random() * cheap.length)];
             await persist(W.addItem(save, got.name));
-            flash(`${flavor} ${got.name} を見つけた！`);
+            addLog(`${got.name} を入手した`, 'good');
+            setEvent({ icon: '🎁', title: `${got.name} を入手！`, desc: flavor, tone: 'good' });
             advanceStep();
         } else if (outcome === 'trap') {
             const trap = W.rollTrap();
             await applyTrap(trap);
-            flash(`${flavor}【${trap.name}】${trap.desc}`);
+            addLog(`罠【${trap.name}】を踏んだ`, 'bad');
+            setEvent({ icon: '⚠️', title: `罠だ！ ${trap.name}`, desc: `${flavor}\n${trap.desc}`, tone: 'bad' });
             advanceStep();
         }
     };
 
     const advanceStep = () => {
         setRun(r => r ? { ...r, step: r.step + 1, hints: rollHints() } : r);
+    };
+
+    // 道具の使用。拠点でも探索中でも同じ処理を使う
+    const useItem = async (name) => {
+        const def = W.SHOP_ITEMS.find(i => i.name === name) || {};
+        let next = W.consumeItem(save, name);
+        next.party = next.party.map(m => {
+            const bd = baseOf(m.id); if (!bd) return m;
+            const max = W.getEffectiveStats(m, bd).hp;
+            if (def.kind === 'heal' && m.currentHp > 0) return { ...m, currentHp: Math.min(max, m.currentHp + Math.floor(max * def.value)) };
+            if (def.kind === 'revive' && m.currentHp <= 0) return { ...m, currentHp: Math.floor(max * def.value) };
+            if (def.kind === 'cure') return { ...m, pendingStatus: null };
+            return m;
+        });
+        await persist(next);
+        if (run) addLog(`${name} を使った`, 'good'); else flash(`${name} を使った`);
+    };
+
+    // 装備技のON/OFF。拠点・探索中の両方から呼ぶ
+    const toggleEquip = async (partyIndex, mv) => {
+        const m = save.party[partyIndex];
+        const cur = m.equippedMoves;
+        let nextMoves;
+        if (cur.includes(mv)) { if (cur.length <= 1) return; nextMoves = cur.filter(x => x !== mv); }
+        else { if (cur.length >= 3) return; nextMoves = [...cur, mv]; }
+        const updated = W.setEquippedMoves(m, nextMoves);
+        await persist({ ...save, party: save.party.map((x, j) => j === partyIndex ? updated : x) });
     };
 
     const doRest = async () => {
@@ -187,7 +236,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         };
         await persist(next);
         setRun(r => ({ ...r, restsLeft: r.restsLeft - 1 }));
-        flash('休憩した（HP30%回復）');
+        addLog('休憩した（HP30%回復）', 'good');
     };
 
     // ---------- 戦闘終了処理 ----------
@@ -228,7 +277,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             // 図鑑登録
             enemies.forEach(e => { next.seenIds = [...new Set([...next.seenIds, e.id])]; });
 
-            flash(`+${money}円 / +${totalExp}exp`);
+            const foeNames = [...new Set(enemies.map(e => e.name))].join('・');
+            addLog(`${foeNames} を撃破（+${money}円 / +${totalExp}exp）`, 'good');
             await persist(next);
 
             // 未所持の相手だけ捕獲画面に回す（所持済みの周回でタップを増やさない）
@@ -270,7 +320,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             next = W.addMonsterToSave(next, W.createAdventureMonster(bd, target.level || 1, dbMoves));
         }
         await persist(next);
-        setCaptureResult({ name: bd ? bd.name : '？', success: res.success });
+        const nm = bd ? bd.name : '？';
+        addLog(res.success ? `${nm} を捕獲した！` : `${nm} の捕獲に失敗`, res.success ? 'good' : 'bad');
+        setCaptureResult({ name: nm, success: res.success });
     };
 
     const skipCapture = () => advanceCaptureQueue();
@@ -313,12 +365,18 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     };
 
     // ---------- 技習得 ----------
-    const resolveLearn = async (moveName) => {
+    const resolveLearn = async (moveName, replaceName = null) => {
         const head = learnQueue[0];
         const inst = save.party[head.partyIndex];
-        const updated = W.learnMove(inst, moveName, dbMoves);
+        const updated = W.learnMove(inst, moveName, dbMoves, replaceName);
         const next = { ...save, party: save.party.map((m, i) => i === head.partyIndex ? updated : m) };
         await persist(next);
+        setPendingLearn(null);
+        if (moveName) {
+            const bd = baseOf(inst.id);
+            addLog(`${bd ? bd.name : ''} が ${moveName} を覚えた`
+                + (replaceName ? `（${replaceName} と入れ替え）` : ''), 'good');
+        }
         const remaining = head.count - 1;
         const q = remaining > 0
             ? [{ ...head, count: remaining }, ...learnQueue.slice(1)]
@@ -331,6 +389,24 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     if (view === 'loading' || !save) {
         return <div className="app-container items-center justify-center text-white font-teko text-xl">LOADING...</div>;
     }
+
+    // 罠・アイテム発見は画面中央に大きく出し、タップで閉じさせる。
+    // 「踏んだ／拾った」手応えを出すのと、下端のトーストを見落とさないための対応
+    const EventModal = () => {
+        if (!event) return null;
+        const bad = event.tone === 'bad';
+        return (
+            <div className="absolute inset-0 z-[140] bg-black/80 flex items-center justify-center p-6 animate-fade-in"
+                onClick={() => setEvent(null)}>
+                <div className={`w-full max-w-[300px] rounded-lg border-2 p-5 text-center shadow-2xl ${bad ? 'border-red-500 bg-red-950/90' : 'border-yellow-400 bg-slate-900/95'}`}>
+                    <div className="text-5xl leading-none mb-3">{event.icon}</div>
+                    <div className={`font-bold text-lg mb-2 ${bad ? 'text-red-200' : 'text-yellow-200'}`}>{event.title}</div>
+                    <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">{event.desc}</p>
+                    <div className="mt-4 text-[10px] text-slate-400 animate-pulse">▼ タップして続ける</div>
+                </div>
+            </div>
+        );
+    };
 
     const Msg = () => msg ? (
         <div className="absolute bottom-2 inset-x-2 z-50 bg-slate-900/95 border border-cyan-500 rounded px-3 py-2 text-xs text-cyan-100 shadow-lg">{msg}</div>
@@ -498,23 +574,50 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             setTimeout(() => resolveLearn(null), 0);
             return <div className="app-container items-center justify-center text-white">...</div>;
         }
+        const MoveRow = ({ mv, onClick, accent }) => {
+            const d = dbMoves[mv] || {};
+            return (
+                <button onClick={onClick}
+                    className={`w-full text-left p-2 mb-2 rounded bg-slate-800 border ${accent || 'border-slate-700'} hover:border-cyan-400`}>
+                    <div className="flex justify-between items-center">
+                        <span className="font-bold text-sm">{mv}</span>
+                        <span className="text-[10px]">{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">{d.desc}</div>
+                </button>
+            );
+        };
+
+        // 装備が3つ埋まっている場合は、どの技と入れ替えるかを自分で選ぶ
+        if (pendingLearn) {
+            return (
+                <div className="app-container p-3 text-white overflow-y-auto safe-bottom">
+                    <h2 className="font-teko text-2xl text-yellow-300 tracking-wider">REPLACE MOVE</h2>
+                    <p className="text-xs text-slate-300 mb-1">{bd.name} は装備が3つ埋まっている。</p>
+                    <p className="text-xs text-cyan-300 mb-3">どの技を <span className="font-bold">{pendingLearn}</span> と入れ替える？</p>
+                    {inst.equippedMoves.map(mv => (
+                        <MoveRow key={mv} mv={mv} onClick={() => resolveLearn(pendingLearn, mv)} accent="border-red-800" />
+                    ))}
+                    <button onClick={() => resolveLearn(pendingLearn, null)}
+                        className="w-full py-2 mt-1 rounded bg-slate-800 border border-slate-600 text-xs">
+                        入れ替えず、覚えるだけにする（拠点で装備可）
+                    </button>
+                    <button onClick={() => setPendingLearn(null)} className="w-full py-2 mt-1 text-slate-500 text-[11px]">
+                        別の技を選び直す
+                    </button>
+                </div>
+            );
+        }
+
         return (
             <div className="app-container p-3 text-white overflow-y-auto safe-bottom">
                 <h2 className="font-teko text-2xl text-yellow-300 tracking-wider">NEW MOVE</h2>
-                <p className="text-xs text-slate-300 mb-3">{bd.name} が新しい技を覚えられる（残り{head.count}）</p>
-                {options.map(mv => {
-                    const d = dbMoves[mv] || {};
-                    return (
-                        <button key={mv} onClick={() => resolveLearn(mv)}
-                            className="w-full text-left p-2 mb-2 rounded bg-slate-800 border border-slate-700 hover:border-cyan-400">
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold text-sm">{mv}</span>
-                                <span className="text-[10px]">{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
-                            </div>
-                            <div className="text-[10px] text-slate-400">{d.desc}</div>
-                        </button>
-                    );
-                })}
+                <p className="text-xs text-slate-300 mb-1">{bd.name} が新しい技を覚えられる（残り{head.count}）</p>
+                <div className="text-[10px] text-slate-500 mb-3">装備中: {inst.equippedMoves.join(' / ')}</div>
+                {options.map(mv => (
+                    <MoveRow key={mv} mv={mv}
+                        onClick={() => W.needsMoveReplace(inst) ? setPendingLearn(mv) : resolveLearn(mv)} />
+                ))}
             </div>
         );
     }
@@ -522,74 +625,180 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     // ---- ダンジョン ----
     if (view === 'dungeon' && run && floor) {
         const dblRate = Math.round(W.getDoubleEncounterRate(floor, run.step) * 100);
+        const logTone = (t) => t === 'good' ? 'text-green-300' : t === 'bad' ? 'text-red-300' : 'text-slate-300';
+
         return (
-            <div className="app-container p-3 text-white relative overflow-y-auto">
-                <div className="flex justify-between items-baseline">
-                    <h2 className="font-teko text-2xl text-cyan-300 tracking-wider">{floor.id} {floor.name}</h2>
-                    <button onClick={async () => { await persist(healAtBase(save)); setRun(null); setBaseTab('home'); setView('base'); }} className="text-[10px] text-slate-500">撤退</button>
-                </div>
-                <div className="text-[11px] text-slate-400 mb-2">
-                    進行 {Math.min(run.step, floor.battles)}/{floor.battles} ・ 休憩 {run.restsLeft}/{floor.rests} ・ 2体遭遇率 {dblRate}%
-                </div>
-
-                {run.step === 0 && W.FLOOR_INTRO[floor.id] && (
-                    <div className="text-[11px] text-slate-300 bg-slate-900/70 border-l-2 border-cyan-600 px-2 py-1.5 mb-3 leading-relaxed">
-                        {W.FLOOR_INTRO[floor.id]}
+            <div className="app-container text-white relative flex flex-col overflow-hidden">
+                {/* ヘッダ */}
+                <div className="flex-none px-3 pt-3">
+                    <div className="flex justify-between items-baseline">
+                        <h2 className="font-teko text-2xl text-cyan-300 tracking-wider leading-none">{floor.id} {floor.name}</h2>
+                        <button onClick={async () => { await persist(healAtBase(save)); setRun(null); setBaseTab('home'); setView('base'); }} className="text-[10px] text-slate-500">撤退</button>
                     </div>
-                )}
-
-                {isBossNext ? (
-                    <>
-                        {W.BOSS_INTRO[floor.id] && (
-                            <div className="text-[11px] text-red-200 bg-red-950/50 border-l-2 border-red-600 px-2 py-1.5 mb-2 whitespace-pre-line leading-relaxed">
-                                {W.BOSS_INTRO[floor.id]}
-                            </div>
-                        )}
-                        <button onClick={() => enterBattle('boss')}
-                            className="w-full py-6 mb-3 rounded bg-red-900/70 border-2 border-red-500 font-teko text-2xl tracking-widest">
-                            BOSS: {floor.boss}
-                        </button>
-                    </>
-                ) : (
-                    <div className="space-y-2 mb-3">
-                        {Object.values(W.NODE_CHOICES).map(c => {
-                            const hint = W.OUTCOME_HINTS[run.hints[c.id]];
-                            const tone = hint.tone === 'danger' ? 'text-red-400' :
-                                hint.tone === 'good' ? 'text-green-400' :
-                                    hint.tone === 'warn' ? 'text-yellow-400' : 'text-slate-400';
-                            return (
-                                <button key={c.id} onClick={() => chooseNode(c.id)}
-                                    className="w-full flex justify-between items-center p-3 rounded bg-slate-800/90 border border-slate-700 hover:border-cyan-400">
-                                    <span className="font-bold text-sm">{c.icon} {c.label}</span>
-                                    <span className={`text-[11px] ${tone}`}>（{hint.text}）</span>
-                                </button>
-                            );
-                        })}
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                        進行 {Math.min(run.step, floor.battles)}/{floor.battles} ・ 休憩 {run.restsLeft}/{floor.rests} ・ 2体遭遇率 {dblRate}%
                     </div>
-                )}
+                </div>
 
-                <button onClick={doRest} disabled={run.restsLeft <= 0}
-                    className={`w-full py-2 rounded text-sm ${run.restsLeft > 0 ? 'bg-slate-700' : 'bg-slate-900 text-slate-600'}`}>
-                    休憩する（HP30%回復・残り{run.restsLeft}）
-                </button>
+                {/* フロアログ（クリアまで残る） */}
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scroll px-3 py-2 space-y-1">
+                    {W.FLOOR_INTRO[floor.id] && (
+                        <div className="text-[11px] text-slate-300 bg-slate-900/70 border-l-2 border-cyan-600 px-2 py-1.5 leading-relaxed">
+                            {W.FLOOR_INTRO[floor.id]}
+                        </div>
+                    )}
+                    {(run.log || []).map((e, i) => (
+                        <div key={i} className={`text-[11px] leading-snug ${logTone(e.tone)}`}>
+                            <span className="text-slate-600 mr-1">›</span>{e.text}
+                        </div>
+                    ))}
+                    {isBossNext && W.BOSS_INTRO[floor.id] && (
+                        <div className="text-[11px] text-red-200 bg-red-950/50 border-l-2 border-red-600 px-2 py-1.5 whitespace-pre-line leading-relaxed">
+                            {W.BOSS_INTRO[floor.id]}
+                        </div>
+                    )}
+                    <div ref={logEndRef}></div>
+                </div>
 
-                <div className="mt-4 border-t border-slate-800 pt-2 safe-bottom">
+                {/* 手持ちHP */}
+                <div className="flex-none px-3 py-1.5 border-t border-slate-800 bg-slate-950/60">
                     {save.party.map((m, i) => {
                         const bd = baseOf(m.id); if (!bd) return null;
                         const max = W.getEffectiveStats(m, bd).hp;
                         const pct = Math.max(0, Math.round(m.currentHp / max * 100));
                         return (
-                            <div key={i} className="flex items-center gap-2 mb-1 text-[11px]">
-                                <span className="w-20 truncate">{bd.name}</span>
-                                <span className="text-slate-500">Lv{m.level}</span>
-                                <div className="flex-1 h-2 bg-slate-900 rounded overflow-hidden">
+                            <div key={i} className="flex items-center gap-2 text-[10px] leading-tight">
+                                <span className="w-16 truncate">{bd.name}</span>
+                                <span className="text-slate-500 w-8">Lv{m.level}</span>
+                                <div className="flex-1 h-1.5 bg-slate-900 rounded overflow-hidden">
                                     <div className={`h-full ${pct < 25 ? 'bg-red-500' : pct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: pct + '%' }} />
                                 </div>
-                                <span className="w-14 text-right text-slate-400">{m.currentHp}/{max}</span>
+                                <span className="w-12 text-right text-slate-400">{m.currentHp}/{max}</span>
                             </div>
                         );
                     })}
                 </div>
+
+                {/* 選択肢は片手で押せるよう画面下部にまとめる */}
+                <div className="flex-none px-3 pt-2 border-t border-slate-800 bg-slate-900/80 safe-bottom">
+                    {isBossNext ? (
+                        <button onClick={() => enterBattle('boss')}
+                            className="w-full py-5 rounded bg-red-900/70 border-2 border-red-500 font-teko text-2xl tracking-widest">
+                            BOSS: {floor.boss}
+                        </button>
+                    ) : (
+                        <div className="space-y-1.5">
+                            {Object.values(W.NODE_CHOICES).map(c => {
+                                const hint = W.OUTCOME_HINTS[run.hints[c.id]];
+                                const tone = hint.tone === 'danger' ? 'text-red-400' :
+                                    hint.tone === 'good' ? 'text-green-400' :
+                                        hint.tone === 'warn' ? 'text-yellow-400' : 'text-slate-400';
+                                return (
+                                    <button key={c.id} onClick={() => chooseNode(c.id)}
+                                        className="w-full flex justify-between items-center px-3 py-2.5 rounded bg-slate-800/90 border border-slate-700 hover:border-cyan-400">
+                                        <span className="font-bold text-sm">{c.icon} {c.label}</span>
+                                        <span className={`text-[11px] ${tone}`}>（{hint.text}）</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                        <button onClick={doRest} disabled={run.restsLeft <= 0}
+                            className={`py-2 rounded text-[11px] ${run.restsLeft > 0 ? 'bg-slate-700' : 'bg-slate-900 text-slate-600'}`}>
+                            休憩 {run.restsLeft}
+                        </button>
+                        <button onClick={() => setPanel('items')} className="py-2 rounded text-[11px] bg-slate-700">🎒 道具</button>
+                        <button onClick={() => setPanel('party')} className="py-2 rounded text-[11px] bg-slate-700">🧬 手持ち</button>
+                    </div>
+                </div>
+
+                {/* 探索中サブパネル */}
+                {panel === 'items' && (
+                    <div className="absolute inset-0 z-[120] bg-black/80 flex flex-col justify-end" onClick={() => setPanel(null)}>
+                        <div className="bg-slate-900 border-t border-slate-600 rounded-t-lg max-h-[70%] flex flex-col safe-bottom"
+                            onClick={e => e.stopPropagation()}>
+                            <div className="flex-none flex justify-between items-center p-3 border-b border-slate-800">
+                                <span className="font-teko text-xl tracking-wider text-cyan-300">ITEMS</span>
+                                <button onClick={() => setPanel(null)} className="text-[11px] text-slate-400">閉じる</button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-3">
+                                {Object.keys(save.items).length === 0
+                                    ? <div className="text-xs text-slate-500">所持品なし</div>
+                                    : Object.entries(save.items).map(([name, qty]) => {
+                                        const def = W.SHOP_ITEMS.find(i => i.name === name) || {};
+                                        const usable = def.kind === 'heal' || def.kind === 'cure' || def.kind === 'revive';
+                                        return (
+                                            <div key={name} className="flex items-center gap-2 p-2 mb-1 bg-slate-800 rounded border border-slate-700">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-xs font-bold truncate">{name} ×{qty}</div>
+                                                    <div className="text-[9px] text-slate-400">{def.effect || ''}</div>
+                                                </div>
+                                                {usable
+                                                    ? <button onClick={() => useItem(name)} className="text-[10px] px-3 py-1.5 bg-green-700 rounded flex-none">使う</button>
+                                                    : <span className="text-[9px] text-slate-500 flex-none">戦闘/捕獲用</span>}
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {panel === 'party' && (
+                    <div className="absolute inset-0 z-[120] bg-black/80 flex flex-col justify-end" onClick={() => { setPanel(null); setMovePartyIndex(null); }}>
+                        <div className="bg-slate-900 border-t border-slate-600 rounded-t-lg max-h-[80%] flex flex-col safe-bottom"
+                            onClick={e => e.stopPropagation()}>
+                            <div className="flex-none flex justify-between items-center p-3 border-b border-slate-800">
+                                <span className="font-teko text-xl tracking-wider text-cyan-300">PARTY</span>
+                                <button onClick={() => { setPanel(null); setMovePartyIndex(null); }} className="text-[11px] text-slate-400">閉じる</button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-3">
+                                {save.party.map((m, i) => {
+                                    const bd = baseOf(m.id); if (!bd) return null;
+                                    const st = W.getEffectiveStats(m, bd);
+                                    const open = movePartyIndex === i;
+                                    return (
+                                        <div key={i} className="mb-2 bg-slate-800 rounded border border-slate-700">
+                                            <div className="flex items-center gap-2 p-2">
+                                                <button onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
+                                                    className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none">
+                                                    {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
+                                                </button>
+                                                <div className="flex-1 min-w-0" onClick={() => setDetailMon(W.toBattleMonster(m, bd))}>
+                                                    <div className="text-xs font-bold truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
+                                                    <div className="text-[9px] text-slate-400">HP{m.currentHp}/{st.hp} A{st.atk} D{st.def} S{st.spd}</div>
+                                                </div>
+                                                <button onClick={() => setMovePartyIndex(open ? null : i)}
+                                                    className="text-[10px] px-2 py-1.5 bg-slate-700 rounded flex-none">{open ? '閉' : '技'}</button>
+                                            </div>
+                                            {open && (
+                                                <div className="px-2 pb-2">
+                                                    <div className="text-[9px] text-slate-500 mb-1">タップで装備を切り替え（最大3・装備 {m.equippedMoves.length}/3）</div>
+                                                    {m.knownMoves.map(mv => {
+                                                        const d = dbMoves[mv] || {};
+                                                        const on = m.equippedMoves.includes(mv);
+                                                        return (
+                                                            <button key={mv} onClick={() => toggleEquip(i, mv)}
+                                                                className={`w-full flex justify-between items-center px-2 py-1.5 mb-0.5 rounded text-[11px] border ${on ? 'border-cyan-400 bg-cyan-900/30' : 'border-slate-700 bg-slate-800/60 text-slate-400'}`}>
+                                                                <span>{mv}</span>
+                                                                <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {detailMon && <window.MonsterDetailModal monster={detailMon} showMoves dbMoves={dbMoves} onClose={() => setDetailMon(null)} />}
+                <EventModal />
                 <Msg />
             </div>
         );
@@ -809,14 +1018,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                 const d = dbMoves[mv] || {};
                                 const on = m.equippedMoves.includes(mv);
                                 return (
-                                    <button key={mv} onClick={async () => {
-                                        const cur = m.equippedMoves;
-                                        let nextMoves;
-                                        if (on) { if (cur.length <= 1) return; nextMoves = cur.filter(x => x !== mv); }
-                                        else { if (cur.length >= 3) return; nextMoves = [...cur, mv]; }
-                                        const updated = W.setEquippedMoves(m, nextMoves);
-                                        await persist({ ...save, party: save.party.map((x, j) => j === i ? updated : x) });
-                                    }}
+                                    <button key={mv} onClick={() => toggleEquip(i, mv)}
                                         className={`w-full flex justify-between items-center px-2 py-1 mb-0.5 rounded text-[11px] border ${on ? 'border-cyan-400 bg-cyan-900/30' : 'border-slate-700 bg-slate-800/60 text-slate-400'}`}>
                                         <span>{mv}</span>
                                         <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
@@ -855,19 +1057,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                         <div className="text-[9px] text-slate-400">{def.effect || ''}</div>
                                     </div>
                                     {usable && (
-                                        <button onClick={async () => {
-                                            let next = W.consumeItem(save, name);
-                                            next.party = next.party.map(m => {
-                                                const bd = baseOf(m.id); if (!bd) return m;
-                                                const max = W.getEffectiveStats(m, bd).hp;
-                                                if (def.kind === 'heal' && m.currentHp > 0) return { ...m, currentHp: Math.min(max, m.currentHp + Math.floor(max * def.value)) };
-                                                if (def.kind === 'revive' && m.currentHp <= 0) return { ...m, currentHp: Math.floor(max * def.value) };
-                                                if (def.kind === 'cure') return { ...m, pendingStatus: null };
-                                                return m;
-                                            });
-                                            await persist(next);
-                                            flash(`${name} を使った`);
-                                        }} className="text-[9px] px-2 py-1 bg-green-700 rounded flex-none">使う</button>
+                                        <button onClick={() => useItem(name)}
+                                            className="text-[9px] px-2 py-1 bg-green-700 rounded flex-none">使う</button>
                                     )}
                                 </div>
                             );
