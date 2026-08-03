@@ -20,9 +20,6 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <script src="./monsters.js"></script>
-    <script src="./moves.js"></script>
-
     <!-- ローカル設定（APIキー等）。未配置なら404になるが動作に影響なし。
          config.local.example.js をコピーして作成する。 -->
     <script src="./config.local.js" onerror="void 0"></script>
@@ -69,6 +66,12 @@
         window.GoogleGenerativeAI = GoogleGenerativeAI;
     </script>
 
+    <!-- データファイルも text/babel で読む。
+         通常の <script src> だとパース時に即取得されてしまい、
+         下の「強制更新」用のバージョン付与が効かないため。 -->
+    <script type="text/babel" src="./monsters.js"></script>
+    <script type="text/babel" src="./moves.js"></script>
+
     <script type="text/babel" src="./gameLogic.js"></script>
     <script type="text/babel" src="./AdventureData.js"></script>
     <script type="text/babel" src="./AdventureCapture.js"></script>
@@ -83,6 +86,28 @@
     <script type="text/babel" src="./BattleEngine.js"></script>
     <script type="text/babel" src="./AdventureMode.js"></script>
     <script type="text/babel" src="./app.js"></script>
+
+    <!-- 強制更新の仕組み。
+         ホーム画面に追加したPWAはキャッシュを掴んだままになり、
+         こちらがデプロイしても新しいJSを取りに行かないことがある。
+         タイトルの「更新」ボタンが ?v=<時刻> を付けて再読み込みし、
+         このスクリプトがその値を各JSのURLへ伝播させて確実に取り直させる。
+         Babel は DOMContentLoaded で text/babel を処理するので、
+         パース中に走るこのインラインスクリプトで src を書き換えれば間に合う。 -->
+    <script>
+        (function () {
+            var v = null;
+            try { v = new URLSearchParams(location.search).get('v'); } catch (e) { }
+            if (!v) return;
+            var tags = document.querySelectorAll('script[type="text/babel"][src]');
+            for (var i = 0; i < tags.length; i++) {
+                var src = tags[i].getAttribute('src');
+                if (src.indexOf('?') === -1) tags[i].setAttribute('src', src + '?v=' + encodeURIComponent(v));
+            }
+            var css = document.querySelector('link[rel="stylesheet"][href]');
+            if (css) css.setAttribute('href', css.getAttribute('href') + '?v=' + encodeURIComponent(v));
+        })();
+    </script>
 
     <script type="text/babel">
         const root = ReactDOM.createRoot(document.getElementById('root'));
