@@ -130,7 +130,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         } else if (eff.type === 'lose_rest') {
             setRun(r => ({ ...r, restsLeft: Math.max(0, r.restsLeft - 1) }));
         } else if (eff.type === 'debuff_random') {
-            next.party = next.party.map(m => ({ ...m, pendingDebuff: true }));
+            // next戦闘開始時に1ステータスがデバフ状態で始まる。どれが下がるかは個体ごとにランダム
+            const stats = ['atk', 'def', 'spd'];
+            next.party = next.party.map(m => ({ ...m, pendingDebuff: stats[Math.floor(Math.random() * stats.length)] }));
         }
         await persist(next);
     };
@@ -180,11 +182,18 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         const enemies = battle.enemyParty;
         let next = { ...save };
 
-        // HP を戦闘後の状態へ反映
+        // HP と状態異常を戦闘後の状態へ反映。
+        // 罠の持ち越し（pendingDebuff）は1戦で消費されるのでここでクリアする
         if (Array.isArray(finalMyState)) {
             next.party = next.party.map((inst, i) => {
                 const after = finalMyState[i];
-                return after ? { ...inst, currentHp: Math.max(0, after.currentHp) } : inst;
+                if (!after) return inst;
+                return {
+                    ...inst,
+                    currentHp: Math.max(0, after.currentHp),
+                    pendingStatus: after.status || null,
+                    pendingDebuff: null
+                };
             });
         }
 
