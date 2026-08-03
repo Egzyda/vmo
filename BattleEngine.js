@@ -694,14 +694,14 @@ const BattleEngine = ({
             />
 
             {/* ENEMY AREA */}
-            <div className="h-[25%] relative z-10 p-1 flex flex-col justify-end bg-gradient-to-b from-slate-800/75 to-slate-900/75 border-b border-slate-700 flex-none mt-4">
+            <div className="flex-1 min-h-[100px] relative z-10 p-1 flex flex-col justify-end bg-gradient-to-b from-slate-800/75 to-slate-900/75 border-b border-slate-700 mt-4">
                 {/* Enemy Bench Status */}
-                <div className="absolute top-2 right-1 flex flex-col gap-2 z-10 w-16">
+                <div className="absolute top-1 right-1 bottom-1 flex flex-col gap-1 z-10 w-14 overflow-y-auto custom-scroll">
                     {enemyState.map((m, i) => {
                         if (enemyField.includes(i) || m.currentHp <= 0) return null;
                         const tBg = TYPE_BG[m.type] || TYPE_BG['normal'];
                         return (
-                            <div key={i} onClick={() => setStatDetail({ monster: m, isAlly: false })} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group cursor-pointer">
+                            <div key={i} onClick={() => setStatDetail({ monster: m, isAlly: false })} className="w-12 h-14 flex-none bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group cursor-pointer">
                                 <div className="w-full aspect-square rounded overflow-hidden relative mb-0.5 bg-slate-900">
                                      {m.img ? ( <img src={m.img} className={`w-full h-full object-contain opacity-80 ${m.status === 'poison' ? 'status-poison-tint' : ''}`} /> ) : ( <div className={`w-full h-full ${tBg} opacity-50`}></div> )}
                                      {m.status === 'poison' && (
@@ -723,7 +723,7 @@ const BattleEngine = ({
                      {enemyField.map((pidx, slot) => {
                         const mon = pidx !== -1 ? enemyState[pidx] : null;
                         return (
-                            <div key={slot} className="w-[28%] max-w-[130px] aspect-[3/4] relative" onClick={() => {
+                            <div key={slot} className="h-full max-h-[150px] aspect-[3/4] relative" onClick={() => {
                                 if (phase === 'command' && selectingMove) {
                                     const mData = dbMoves[selectingMove];
                                     if (mData && (mData.target === 'single' || mData.target === 'enemy' || mData.target === 'any_single')) handleCommandSelect('move', { moveName: selectingMove, targetSlot: slot, targetSide: 'enemy' });
@@ -739,7 +739,7 @@ const BattleEngine = ({
             </div>
 
             {/* LOG AREA */}
-            <div className="flex-none h-[15%] min-h-[60px] bg-slate-950/90 border-y border-slate-700 overflow-y-auto battle-log text-xs font-mono leading-tight relative z-20 shadow-inner" ref={logContainerRef}>
+            <div className="flex-none h-[14%] min-h-[56px] max-h-[110px] bg-slate-950/90 border-y border-slate-700 overflow-y-auto battle-log text-xs font-mono leading-tight relative z-20 shadow-inner" ref={logContainerRef}>
                  {distortion && (
                     <div className="sticky top-0 left-0 w-full bg-purple-900/90 text-white text-[12px] px-2 py-0.5 mb-1 border-b border-purple-500 text-center font-bold font-teko tracking-wider shadow-lg">
                         ディストーション空間（残り{distortionTurns}ターン）
@@ -759,14 +759,14 @@ const BattleEngine = ({
             </div>
 
             {/* PLAYER AREA */}
-            <div className="flex-1 relative z-10 p-1 flex flex-col justify-end min-h-[80px] bg-slate-900/70 pt-8">
+            <div className="flex-1 min-h-[100px] relative z-10 p-1 flex flex-col justify-end bg-slate-900/70 pt-6">
                 {/* My Bench Status */}
-                <div className="absolute top-2 right-1 flex flex-col gap-2 z-10 w-16">
+                <div className="absolute top-1 right-1 bottom-1 flex flex-col gap-1 z-10 w-14 overflow-y-auto custom-scroll">
                     {myState.map((m, i) => {
                         if (myField.includes(i) || m.currentHp <= 0) return null;
                         const tBg = TYPE_BG[m.type] || TYPE_BG['normal'];
                         return (
-                            <div key={i} onClick={() => setStatDetail({ monster: m, isAlly: true })} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group cursor-pointer">
+                            <div key={i} onClick={() => setStatDetail({ monster: m, isAlly: true })} className="w-12 h-14 flex-none bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group cursor-pointer">
                                 <div className="w-full aspect-square rounded overflow-hidden relative mb-0.5 bg-slate-900">
                                      {m.img ? ( <img src={m.img} className={`w-full h-full object-contain opacity-80 ${m.status === 'poison' ? 'status-poison-tint' : ''}`} /> ) : ( <div className={`w-full h-full ${tBg} opacity-50`}></div> )}
                                      {m.status === 'poison' && (
@@ -789,7 +789,7 @@ const BattleEngine = ({
                         const mon = pidx !== -1 ? myState[pidx] : null;
                         const isActing = slot === actingSlot && phase === 'command';
                         return (
-                            <div key={slot} className={`w-[28%] max-w-[130px] aspect-[3/4] relative transition-transform ${isActing ? '-translate-y-1' : ''}`}
+                            <div key={slot} className={`h-full max-h-[150px] aspect-[3/4] relative transition-transform ${isActing ? '-translate-y-1' : ''}`}
                             onClick={() => {
                                 if (phase === 'command' && selectingMove) {
                                     const mData = dbMoves[selectingMove];
