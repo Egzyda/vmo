@@ -393,7 +393,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         );
                     })}
                 </div>
-                <div className="flex-none p-3 pt-0">
+                <div className="flex-none p-3 pt-0 safe-bottom">
                     <button disabled={starterPicks.length !== 2} onClick={confirmStarters}
                         className={`w-full py-3 rounded font-teko text-xl tracking-wider ${starterPicks.length === 2 ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-slate-600'}`}>
                         START ({starterPicks.length}/2)
@@ -436,7 +436,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
 
         if (captureResult) {
             return (
-                <div className="app-container p-4 text-white flex flex-col items-center justify-center">
+                <div className="app-container p-4 text-white flex flex-col items-center justify-center safe-bottom">
                     <div className="w-32 h-32 bg-slate-900 rounded-lg overflow-hidden mb-3 border border-slate-700">
                         {bd && bd.img && <img src={bd.img} className={`w-full h-full object-contain ${captureResult.success ? '' : 'grayscale opacity-50'}`} />}
                     </div>
@@ -452,7 +452,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         }
 
         return (
-            <div className="app-container p-4 text-white overflow-y-auto">
+            <div className="app-container p-4 text-white overflow-y-auto safe-bottom">
                 <h2 className="font-teko text-2xl text-cyan-300 tracking-wider">CAPTURE</h2>
                 <div className="flex items-center gap-3 my-3">
                     <div className="w-20 h-20 bg-slate-900 rounded overflow-hidden border border-slate-700 flex-none">
@@ -499,7 +499,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             return <div className="app-container items-center justify-center text-white">...</div>;
         }
         return (
-            <div className="app-container p-3 text-white overflow-y-auto">
+            <div className="app-container p-3 text-white overflow-y-auto safe-bottom">
                 <h2 className="font-teko text-2xl text-yellow-300 tracking-wider">NEW MOVE</h2>
                 <p className="text-xs text-slate-300 mb-3">{bd.name} が新しい技を覚えられる（残り{head.count}）</p>
                 {options.map(mv => {
@@ -573,7 +573,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     休憩する（HP30%回復・残り{run.restsLeft}）
                 </button>
 
-                <div className="mt-4 border-t border-slate-800 pt-2">
+                <div className="mt-4 border-t border-slate-800 pt-2 safe-bottom">
                     {save.party.map((m, i) => {
                         const bd = baseOf(m.id); if (!bd) return null;
                         const max = W.getEffectiveStats(m, bd).hp;
@@ -609,7 +609,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     <h2 className="font-teko text-2xl text-cyan-300 tracking-wider">SELECT FLOOR</h2>
                     <button onClick={() => setView('base')} className="text-[10px] text-slate-400">BACK</button>
                 </div>
-                <div className="relative z-10 flex-1 overflow-y-auto p-3 space-y-2">
+                <div className="relative z-10 flex-1 overflow-y-auto p-3 space-y-2 safe-bottom">
                     {W.FLOORS.slice(0, maxFloor).slice().reverse().map(f => {
                         const cleared = save.clearedFloors.includes(f.position);
                         const avgLv = Math.round(save.party.reduce((s, m) => s + m.level, 0) / Math.max(1, save.party.length));
@@ -681,21 +681,34 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     </div>
                 </div>
 
-                {/* パーティ簡易表示 */}
+                {/* パーティ簡易表示。
+                    手持ちの数でサイズが変わらないよう常に4枠のグリッドにし、
+                    空き枠はプレースホルダで埋める（2体のとき巨大化するのを防ぐ） */}
                 <div className="relative z-10 flex-none px-3">
-                    <div className="flex gap-1.5">
-                        {save.party.map((m, i) => {
-                            const bd = baseOf(m.id); if (!bd) return null;
+                    <div className="grid grid-cols-4 gap-1.5">
+                        {Array.from({ length: W.ADVENTURE_PARTY_LIMIT }).map((_, i) => {
+                            const m = save.party[i];
+                            const bd = m ? baseOf(m.id) : null;
+                            if (!m || !bd) {
+                                return (
+                                    <div key={i} className="bg-slate-900/40 rounded border border-dashed border-slate-700/60 overflow-hidden">
+                                        <div className="w-full aspect-square flex items-center justify-center">
+                                            <span className="text-slate-700 text-lg leading-none">＋</span>
+                                        </div>
+                                        <div className="px-1 pb-1 h-[26px]"></div>
+                                    </div>
+                                );
+                            }
                             const max = W.getEffectiveStats(m, bd).hp;
                             const pct = Math.max(0, Math.round(m.currentHp / max * 100));
                             return (
-                                <div key={i} className="flex-1 bg-slate-900/80 rounded border border-slate-700 overflow-hidden">
+                                <div key={i} className="bg-slate-900/80 rounded border border-slate-700 overflow-hidden">
                                     <div className="w-full aspect-square bg-slate-950">
                                         {bd.img && <img src={bd.img} className={`w-full h-full object-contain ${m.currentHp <= 0 ? 'grayscale opacity-40' : ''}`} />}
                                     </div>
-                                    <div className="px-1 pb-1">
-                                        <div className="text-[8px] truncate">{bd.name}</div>
-                                        <div className="text-[8px] text-slate-400">Lv{m.level}</div>
+                                    <div className="px-1 pb-1 h-[26px]">
+                                        <div className="text-[8px] truncate leading-tight">{bd.name}</div>
+                                        <div className="text-[8px] text-slate-400 leading-tight">Lv{m.level}</div>
                                         <div className="h-1 bg-slate-800 rounded overflow-hidden">
                                             <div className={`h-full ${pct < 25 ? 'bg-red-500' : pct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: pct + '%' }} />
                                         </div>
@@ -719,7 +732,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 </div>
 
                 {/* 下部: サブメニュー */}
-                <div className="relative z-10 flex-none p-3 grid grid-cols-4 gap-1.5">
+                <div className="relative z-10 flex-none p-3 grid grid-cols-4 gap-1.5 safe-bottom">
                     {[['party', 'パーティ', '🧬'], ['moves', '技', '⚡'], ['shop', 'ショップ', '🛒'], ['items', '道具', '🎒']].map(([k, label, icon]) => (
                         <button key={k} onClick={() => setBaseTab(k)}
                             className="py-2 rounded bg-slate-900/85 border border-slate-700 hover:border-cyan-400">
@@ -862,7 +875,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 )}
             </div>
 
-            <div className="flex-none p-3 border-t border-slate-800">
+            <div className="flex-none p-3 border-t border-slate-800 safe-bottom">
                 <button onClick={() => setBaseTab('home')}
                     className="w-full py-2 rounded bg-slate-800 border border-slate-600 text-sm font-teko tracking-wider">
                     ホームに戻る
