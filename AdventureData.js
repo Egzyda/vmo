@@ -13,6 +13,15 @@ const STARTER_MOVES = window.STARTER_MOVES = {
     normal: "タックル"
 };
 
+// 全ヴァーモンが初期から持つ無属性技。属性技より威力が低い代わりに半減されない。
+// 無属性モンスターは属性下位技がタックルと同一なので、例外として1つだけ持つ。
+const COMMON_STARTER_MOVE = window.COMMON_STARTER_MOVE = "タックル";
+
+const getStartingMoves = window.getStartingMoves = (monster) => {
+    const elemental = STARTER_MOVES[monster.type];
+    return elemental === COMMON_STARTER_MOVE ? [elemental] : [elemental, COMMON_STARTER_MOVE];
+};
+
 // ============================================================
 // 2. レベル / 経験値（SPEC 4.3, 4.4）
 // ============================================================
@@ -30,8 +39,11 @@ const getRequiredExp = window.getRequiredExp = (level) => {
     return Math.floor(10 * Math.pow(level, 1.8));
 };
 
+// 必要経験値が Lv^1.8 で伸びるのに対し、取得側が線形（10+Lv*5）だと
+// 高レベルほど際限なく伸び悩む（Lv70到達に約1,467戦＝本編164戦では到達不能だった）。
+// 同じ次数で伸ばすことで、全編通して1レベルあたり約2.5戦の一定ペースになる。
 const getBaseExp = window.getBaseExp = (enemyLevel) => {
-    return 10 + enemyLevel * 5;
+    return Math.max(1, Math.floor(4 * Math.pow(Math.max(1, enemyLevel), 1.8)));
 };
 
 // 自分が格上の場合は指数関数的になだらかに減衰（diff=-10で概ね1/7、下限0.02）
@@ -60,22 +72,56 @@ const getDropMoney = window.getDropMoney = (enemyLevel, rng = Math.random) => {
 // ============================================================
 // 3. 技習得（SPEC 4.14）
 // ============================================================
-const MOVE_LEARN_CHECKPOINTS = window.MOVE_LEARN_CHECKPOINTS = [3, 9, 15, 21, 27];
+// 候補6技すべてを習得できるよう6箇所。Lv29で全習得完了。
+// 到達ペースの実測: Lv3=B30クリア直後 / Lv7=B28頃 / Lv11=B26頃 / Lv16=B23頃
+const MOVE_LEARN_CHECKPOINTS = window.MOVE_LEARN_CHECKPOINTS = [3, 7, 11, 16, 22, 29];
 
-// 攻撃技を先に並べた候補順（敵の自動編成・途中加入の自動習得に使う）
+const isStatusMove = (name, dbMoves) => !!(dbMoves[name] && dbMoves[name].category === 'status');
+
+// 敵用の候補順: 攻撃技を威力降順で先に、補助技を後ろに。
+// 威力順にしないと、レベルが低く1技しか覚えていないボスが
+// たまたま配列の先頭にある弱い技／属性の噛み合わない技を主力にしてしまう。
 const getAutoMoveOrder = window.getAutoMoveOrder = (monster, dbMoves) => {
-    return [...(monster.moves || [])].sort((a, b) => {
-        const aStatus = dbMoves[a] && dbMoves[a].category === 'status' ? 1 : 0;
-        const bStatus = dbMoves[b] && dbMoves[b].category === 'status' ? 1 : 0;
-        return aStatus - bStatus;
-    });
+    const pool = monster.moves || [];
+    const attack = pool.filter(m => !isStatusMove(m, dbMoves))
+        .sort((a, b) => (dbMoves[b].power || 0) - (dbMoves[a].power || 0));
+    const status = pool.filter(m => isStatusMove(m, dbMoves));
+    return [...attack, ...status];
+};
+
+// 味方の自動習得順。最初の1つは必ず補助技にする
+// （初期技が下位攻撃技2つなので、いきなり上位攻撃技を配ると下位技が即死蔵になる）
+const getPlayerAutoMoveOrder = window.getPlayerAutoMoveOrder = (monster, dbMoves) => {
+    const pool = monster.moves || [];
+    const status = pool.filter(m => isStatusMove(m, dbMoves));
+    const attack = pool.filter(m => !isStatusMove(m, dbMoves))
+        .sort((a, b) => (dbMoves[a].power || 0) - (dbMoves[b].power || 0)); // 弱い攻撃技から
+    if (!status.length) return attack;
+    return [status[0], ...attack, ...status.slice(1)];
 };
 
 // 捕獲直後に知っている技。通過済みチェックポイント分を自動習得済みにする
 const getKnownMovesOnCapture = window.getKnownMovesOnCapture = (monster, level, dbMoves) => {
     const passed = MOVE_LEARN_CHECKPOINTS.filter(lv => level >= lv).length;
-    const starter = STARTER_MOVES[monster.type];
-    return [starter, ...getAutoMoveOrder(monster, dbMoves).slice(0, passed)];
+    return [...getStartingMoves(monster), ...getPlayerAutoMoveOrder(monster, dbMoves).slice(0, passed)];
+};
+
+// 敵が知っている技。味方と違い攻撃技から先に覚える。
+// （味方用の補助技優先順を敵に流用すると、低レベルのボスが補助技しか持てなくなる）
+const getEnemyKnownMoves = window.getEnemyKnownMoves = (monster, level, dbMoves) => {
+    const passed = MOVE_LEARN_CHECKPOINTS.filter(lv => level >= lv).length;
+    return [...getStartingMoves(monster), ...getAutoMoveOrder(monster, dbMoves).slice(0, Math.max(1, passed))];
+};
+
+// 習得画面に出す選択肢。最初の1つ（候補技を1つも覚えていない状態）は補助技のみに絞る
+const getLearnOptions = window.getLearnOptions = (monster, knownMoves, dbMoves) => {
+    const remaining = (monster.moves || []).filter(m => !knownMoves.includes(m));
+    const learnedFromPool = (monster.moves || []).filter(m => knownMoves.includes(m));
+    if (learnedFromPool.length === 0) {
+        const statusOnly = remaining.filter(m => isStatusMove(m, dbMoves));
+        if (statusOnly.length) return statusOnly;
+    }
+    return remaining;
 };
 
 // レベルアップでチェックポイントを跨いだか（跨いだなら習得選択を出す）
@@ -104,15 +150,24 @@ const getWildMoveSet = window.getWildMoveSet = (monster, floorPosition, dbMoves,
     const realMoves = shuffled.slice(0, Math.min(3, realCount || 1));
 
     if (floorPosition < 15) return [starter, ...realMoves].slice(0, 3);
-    return realMoves.length ? realMoves : [starter]; // 15階目以降は下位技を使わない
+
+    // 15階目以降は下位技を使わない。
+    // ただし抽選で補助技ばかり引くと攻撃手段が無くなるので、最低1つは攻撃技を保証する
+    const hasAttack = realMoves.some(m => dbMoves[m] && dbMoves[m].category !== 'status');
+    if (!hasAttack) {
+        const attack = pool.find(m => dbMoves[m] && dbMoves[m].category !== 'status');
+        if (attack) return [attack, ...realMoves].slice(0, 3);
+        return [starter];
+    }
+    return realMoves;
 };
 
 // エリート/ボス: 威力順の攻撃技2つ + 補助技1つを機械的に自動編成
 const getEliteMoves = window.getEliteMoves = (monster, level, dbMoves) => {
-    const starter = STARTER_MOVES[monster.type];
+    const starting = getStartingMoves(monster);
     // 下位技はエリート/ボスの枠を埋めるだけの弱技なので除外する
     // （残りが無くなる場合のみフォールバックとして使う）
-    const known = getKnownMovesOnCapture(monster, level, dbMoves).filter(m => m !== starter);
+    const known = getEnemyKnownMoves(monster, level, dbMoves).filter(m => !starting.includes(m));
 
     const attack = known
         .filter(m => dbMoves[m] && dbMoves[m].category !== 'status')
@@ -236,29 +291,37 @@ const ITEMS_USABLE_IN_BATTLE = window.ITEMS_USABLE_IN_BATTLE = false;
 // 9. フロア構成（SPEC 4.11 / 4.11b）
 // ============================================================
 // position: 潜り始めてからの通し階数（1=B30）。技構成・レベルはこれを基準にする
+// bossTier: ボスのステータス補正。B30はチュートリアルなので補正なし(1.0)。
+// 序盤3フロア(B30-B28)は炎水草の混合。単一属性テーマだと初期選択の属性次第で
+// 常時1.5倍被弾になり詰むため、属性テーマはB27(光)から始める。
+// ボスには初期選択6体を使わない（自分と同じヴァーモンと戦う違和感を避ける）。
 const FLOORS = window.FLOORS = [
-    { position: 1, id: 'B30', name: '炎の実験エリア', battles: 3, rests: 2, level: 5,
-      wild: ['ヒノエナガ', 'ジェケイダ'], boss: 'フレイミー', baseRate: 0.00, rampPerStep: 0.03 },
-    { position: 2, id: 'B29', name: '水辺エリア', battles: 3, rests: 2, level: 7,
-      wild: ['コペゾー', 'スイネーク'], boss: 'ウォータル', baseRate: 0.00, rampPerStep: 0.03 },
-    { position: 3, id: 'B28', name: '草原エリア', battles: 3, rests: 2, level: 9,
-      wild: ['ハナーネ', 'フラビット'], boss: 'ハッパンク', baseRate: 0.02, rampPerStep: 0.03 },
-    { position: 4, id: 'B27', name: '光の研究室', battles: 4, rests: 2, level: 11,
-      wild: ['ツキネ', 'リュミエット'], boss: 'ライトラ', baseRate: 0.04, rampPerStep: 0.04 },
-    { position: 5, id: 'B26', name: '闇の実験場', battles: 4, rests: 2, level: 13,
-      wild: ['ハリースト', 'モスパーク'], boss: 'エルダーク', baseRate: 0.06, rampPerStep: 0.04 },
-    { position: 6, id: 'B25', name: '混合エリア(炎+水)', battles: 4, rests: 3, level: 15,
-      wild: ['エンガール', 'ビョウゲツ', 'フレイミー', 'コペゾー', 'ジェケイダ'], boss: 'レイコーン', baseRate: 0.10, rampPerStep: 0.05 },
-    { position: 7, id: 'B24', name: '混合エリア(草+光)', battles: 5, rests: 3, level: 16,
-      wild: ['シバフールー', 'オヌ・リン', 'ハナーネ', 'ツキネ', 'ライトラ'], boss: 'アカリード', baseRate: 0.13, rampPerStep: 0.05 },
-    { position: 8, id: 'B23', name: '廃棄エリア', battles: 5, rests: 3, level: 17,
-      wild: ['シカバラス', 'ウィデビット', 'ハリースト', 'モスパーク', 'スイネーク'], boss: 'ザルディヴァ', baseRate: 0.16, rampPerStep: 0.06 },
+    // B30はチュートリアル。自動編成だとシカバラスの単体攻撃がラッシュ(P90)しかなく、
+    // 初期技(P30-40)しか持たないLv1パーティに対して火力差が2倍以上つくため技を手動指定する。
+    // タックル=プレイヤーと同威力帯 / パワーチャージ=バフの存在を教える
+    { position: 1, id: 'B30', name: '第三実験区画', battles: 3, rests: 2, level: 2,
+      bossTier: 'normal', bossLevel: 4, bossMoves: ['タックル', 'パワーチャージ'],
+      wild: ['ヒノエナガ', 'コペゾー', 'ハナーネ'], boss: 'シカバラス', baseRate: 0.00, rampPerStep: 0.02 },
+    { position: 2, id: 'B29', name: '飼育プール', battles: 3, rests: 2, level: 4,
+      wild: ['ジェケイダ', 'スイネーク', 'フラビット'], boss: 'イグニルフ', baseRate: 0.00, rampPerStep: 0.03 },
+    { position: 3, id: 'B28', name: '培養温室', battles: 4, rests: 2, level: 6,
+      wild: ['バラビィ', 'ビョウゲツ', 'モモ'], boss: 'ペパザール', baseRate: 0.02, rampPerStep: 0.03 },
+    { position: 4, id: 'B27', name: '光の研究室', battles: 4, rests: 2, level: 8,
+      wild: ['ツキネ', 'リュミエット', 'オヌ・リン'], boss: 'ライトラ', baseRate: 0.04, rampPerStep: 0.04 },
+    { position: 5, id: 'B26', name: '闇の実験場', battles: 4, rests: 2, level: 10,
+      wild: ['ハリースト', 'モスパーク', 'ウィデビット'], boss: 'エルダーク', baseRate: 0.06, rampPerStep: 0.04 },
+    { position: 6, id: 'B25', name: '混合エリア(炎+水)', battles: 5, rests: 3, level: 12,
+      wild: ['エンガール', 'ビョウゲツ', 'ヒノエナガ', 'コペゾー'], boss: 'レイコーン', baseRate: 0.10, rampPerStep: 0.05 },
+    { position: 7, id: 'B24', name: '混合エリア(草+光)', battles: 5, rests: 3, level: 14,
+      wild: ['シバフールー', 'オヌ・リン', 'ハナーネ', 'ツキネ'], boss: 'アカリード', baseRate: 0.13, rampPerStep: 0.05 },
+    { position: 8, id: 'B23', name: '廃棄エリア', battles: 5, rests: 3, level: 16,
+      wild: ['ウィデビット', 'ハリースト', 'モスパーク', 'スイネーク'], boss: 'ザルディヴァ', baseRate: 0.16, rampPerStep: 0.06 },
     { position: 9, id: 'B22', name: '高速テストエリア', battles: 5, rests: 3, level: 18,
-      wild: ['ジェケイダ', 'リュミエット', 'ツキネ'], boss: 'フィンレーツ', baseRate: 0.19, rampPerStep: 0.07 },
-    { position: 10, id: 'B21', name: '重装テストエリア', battles: 5, rests: 3, level: 19,
-      wild: ['ロクザール', 'ペパザール', 'ウォータル', 'ハッパンク', 'ハナーネ'], boss: 'マグマス', baseRate: 0.25, rampPerStep: 0.08 },
+      wild: ['ジェケイダ', 'リュミエット', 'ツキネ', 'ハリースト'], boss: 'フィンレーツ', baseRate: 0.19, rampPerStep: 0.07 },
+    { position: 10, id: 'B21', name: '重装テストエリア', battles: 6, rests: 3, level: 19,
+      wild: ['ロクザール', 'ジェリスタル', 'シバフールー', 'フラビット'], boss: 'マグマス', baseRate: 0.25, rampPerStep: 0.08 },
     { position: 11, id: 'B20', name: '中間管理エリア', battles: 6, rests: 4, level: 20,
-      wild: ['シャコマル', 'デヴィートル', 'エルダーク', 'レイコーン', 'フィンレーツ'], boss: 'ミレメント', baseRate: 0.30, rampPerStep: 0.08 }
+      wild: ['シャコマル', 'デヴィートル', 'オベアー', 'レイコーン'], boss: 'ミレメント', baseRate: 0.30, rampPerStep: 0.08 }
 ];
 
 // B19〜B1（続編フェーズ）。ゾーン単位の骨格のみ定義し、実装時に個別フロアへ展開する
@@ -284,4 +347,57 @@ const STARTER_CHOICES = window.STARTER_CHOICES = [
 
 const getFloorByPosition = window.getFloorByPosition = (position) => {
     return FLOORS.find(f => f.position === position) || null;
+};
+
+// ============================================================
+// 10. ストーリー / 演出テキスト（SPEC 4.1 / 4.12）
+// ============================================================
+const PROLOGUE = window.PROLOGUE = [
+    "戦うために造られたモンスター『ヴァーモン』。\nそれを人工的に生み出す地下研究施設——『アーク』。",
+    "研究者であるあなたは、施設の管理者に反旗をひるがえし\n地下30階の隔離区画に監禁されていた。\n次の被験体は、あなた自身だという。",
+    "だがある夜、施設内で暴走したヴァーモンが\nあなたの監禁ポッドを破壊した。",
+    "チャンスは今しかない。\nヴァーモンを従え、地上を目指せ。"
+];
+
+const EPILOGUE = window.EPILOGUE = [
+    "ゲートが開く。広がる空。本物の風。\n——脱出成功だ。",
+    "だが、地平線の向こうに無数の影が蠢いていた。\n地上は、すでにヴァーモンのものだった。"
+];
+
+// フロア入場時の一言。地上に近づくほど明るくなる描写を積む
+const FLOOR_INTRO = window.FLOOR_INTRO = {
+    B30: "非常灯だけが赤く点滅している。ここが地下30階——アークの最下層だ。",
+    B29: "足元に水が溜まっている。培養プールの循環が止まっているらしい。",
+    B28: "枯れかけた植物が通路を覆っている。空調はとうに死んでいる。",
+    B27: "白い照明がまだ生きている。実験記録のモニターが虚しく明滅する。",
+    B26: "照明が落ちている。闇の中で、何かがこちらを見ている気配がする。",
+    B25: "熱気と湿気が入り混じる。区画の隔壁が溶け落ちたようだ。",
+    B24: "陽光を模した照明。植物と光が入り混じる、奇妙に穏やかな区画。",
+    B23: "失敗作が打ち捨てられた区画。彼らはまだ生きている。",
+    B22: "風を切る音。何かがとてつもない速度で通路を横切った。",
+    B21: "床が軋む。重装個体のテストに使われていた区画だ。",
+    B20: "ここから上は管理区画。監視の目が、明らかに濃くなる。"
+};
+
+const BOSS_INTRO = window.BOSS_INTRO = {
+    B30: "通路の先を、一体のヴァーモンが塞いでいる。\n最初の関門だ。",
+    B20: "分厚い隔壁の前に、管理個体が立っていた。\nここを抜ければ、中層だ。"
+};
+
+const FLOOR_CLEAR = window.FLOOR_CLEAR = {
+    B30: "隔壁が開いた。地上まで、あと29階。",
+    B20: "中間管理区画を突破した。地上の空気が、かすかに感じられる。"
+};
+
+// 探索テキスト。結果に応じたトーンで「歩いて遭遇した」感を出す
+const ENCOUNTER_FLAVOR = window.ENCOUNTER_FLAVOR = {
+    normal: ["物音がした。", "曲がり角の先に気配がある。", "何かがこちらに気づいた。"],
+    elite: ["空気が変わった。ただの個体ではない。", "重い足音が近づいてくる。", "強化個体だ——警戒しろ。"],
+    item: ["物資コンテナが転がっている。", "誰かの落とし物を見つけた。", "棚の奥に何か残っていた。"],
+    trap: ["足元で、何かが小さく鳴った。", "しまった——踏んだ。", "警報装置が作動する。"]
+};
+
+const pickFlavor = window.pickFlavor = (outcome, rng = Math.random) => {
+    const list = ENCOUNTER_FLAVOR[outcome] || [];
+    return list.length ? list[Math.floor(rng() * list.length)] : '';
 };
