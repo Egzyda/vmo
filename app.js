@@ -274,6 +274,30 @@ const App = () => {
         setView('battle');
     };
 
+    // ホーム画面に追加したPWAはキャッシュを掴んだまま更新されないため、
+    // URLに ?v=<時刻> を付けて読み込み直す（index.html側が各JSのURLへ伝播させる）。
+    // Cache Storage も念のため消す。セーブはlocalStorage/Firestoreなので消えない。
+    const forceUpdate = async () => {
+        try {
+            if (window.caches && caches.keys) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(k => caches.delete(k)));
+            }
+        } catch (e) { /* 失敗しても再読み込みは続行する */ }
+        const base = location.origin + location.pathname;
+        location.replace(base + '?v=' + Date.now());
+    };
+
+    // 更新が反映されたか確認できるよう、HTMLの最終更新時刻を出す
+    const buildStamp = (() => {
+        try {
+            const d = new Date(document.lastModified);
+            if (isNaN(d.getTime())) return '';
+            const p = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+        } catch (e) { return ''; }
+    })();
+
     const handleVersionTap = () => {
         const nextCount = debugTapCount + 1;
         setDebugTapCount(nextCount);
@@ -474,13 +498,21 @@ const App = () => {
                                 </button>
                             </div>
 
-                            <button onClick={() => setShowTutorial(true)} className="w-full py-2 mt-1 text-slate-500 text-xs font-teko tracking-[0.2em] hover:text-cyan-400 transition-colors uppercase">
-                                System Guide & Tutorial
-                            </button>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                                <button onClick={() => setShowTutorial(true)} className="py-2 text-slate-500 text-xs font-teko tracking-[0.15em] hover:text-cyan-400 transition-colors uppercase">
+                                    System Guide
+                                </button>
+                                <button onClick={forceUpdate} className="py-2 text-slate-500 text-xs font-teko tracking-[0.15em] hover:text-amber-400 transition-colors uppercase">
+                                    ↻ 更新
+                                </button>
+                            </div>
 
                         </div>
 
-                        <div onClick={handleVersionTap} className="absolute -bottom-8 text-[10px] text-gray-600 font-teko cursor-pointer select-none active:text-gray-400">VER 4.1.0 - Full Unlock</div>
+                        <div onClick={handleVersionTap} className="absolute -bottom-8 text-[10px] text-gray-600 font-teko cursor-pointer select-none active:text-gray-400 text-center leading-tight">
+                            VER 4.1.0 - Full Unlock<br />
+                            <span className="text-[9px] text-gray-700">{buildStamp}</span>
+                        </div>
                     </div>
                 </div>
             )}
