@@ -77,6 +77,39 @@ const BigMonsterCard = window.BigMonsterCard = ({ monster, isSelected, index, on
     );
 };
 
+
+// 被弾・回復・バフの簡易演出。monster.fx = { kind, type } を見て描画する。
+// kind: 'damage' | 'heal' | 'buff' | 'debuff'
+const FX_FLASH_COLOR = {
+    fire: 'bg-red-500', water: 'bg-blue-400', grass: 'bg-green-500',
+    light: 'bg-yellow-300', dark: 'bg-purple-500', normal: 'bg-slate-300'
+};
+
+const MonsterFx = window.MonsterFx = ({ fx }) => {
+    if (!fx) return null;
+    if (fx.kind === 'damage') {
+        const c = FX_FLASH_COLOR[fx.type] || FX_FLASH_COLOR.normal;
+        return <div className={`absolute inset-0 z-30 pointer-events-none ${c} fx-flash`}></div>;
+    }
+    if (fx.kind === 'heal') {
+        return (
+            <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center fx-heal">
+                <div className="absolute inset-0 bg-green-400/50"></div>
+                <span className="relative text-green-100 font-black text-2xl drop-shadow">＋</span>
+            </div>
+        );
+    }
+    if (fx.kind === 'buff' || fx.kind === 'debuff') {
+        const up = fx.kind === 'buff';
+        return (
+            <div className={`absolute inset-0 z-30 pointer-events-none flex items-center justify-center ${up ? 'fx-buff' : 'fx-debuff'}`}>
+                <span className={`font-black text-3xl drop-shadow ${up ? 'text-red-300' : 'text-blue-300'}`}>{up ? '▲' : '▼'}</span>
+            </div>
+        );
+    }
+    return null;
+};
+
 const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isSelected, showStatus = true, compact = false }) => {
     const [imgError, setImgError] = useState(false);
     if (!monster) return <div className={`w-full ${compact ? 'aspect-square' : 'aspect-[3/4]'} rounded bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center shadow-inner`}><span className="text-slate-600 text-xs font-teko">EMPTY</span></div>;
@@ -114,7 +147,7 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isS
 
     if (showStatus) {
         return (
-            <div className={`relative w-full rounded border transition-all duration-200 select-none overflow-hidden flex flex-col ${isFainted ? 'opacity-50 grayscale' : 'opacity-100'} ${isActive ? 'scale-105 shadow-xl shadow-blue-500/20 z-10 border-blue-400' : 'border-slate-600'} ${isTargetable ? 'ring-2 ring-yellow-400 cursor-pointer' : ''} bg-slate-900 p-1`}>
+            <div className={`relative w-full rounded border transition-all duration-200 select-none overflow-hidden flex flex-col ${isFainted ? 'opacity-50 grayscale' : 'opacity-100'} ${isActive ? 'scale-105 shadow-xl shadow-blue-500/20 z-10 border-blue-400' : 'border-slate-600'} ${isTargetable ? 'ring-2 ring-yellow-400 cursor-pointer' : ''} ${monster.fx && monster.fx.kind === 'damage' ? 'fx-hit' : ''} bg-slate-900 p-1`}>
                 <Header />
                 <div className="w-full aspect-square bg-slate-900 rounded border border-slate-700 flex items-center justify-center overflow-hidden relative group">
                         {monster.img && !imgError ? (
@@ -132,7 +165,7 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isS
                             <div className="flex justify-end text-xs text-white text-stat text-outline leading-none mt-0.5">{monster.currentHp}/{monster.maxHp}</div>
                         </div>
                         {monster.isProtected && <div className="absolute inset-0 bg-blue-500/30 border-2 border-blue-400 z-20"></div>}
-                        {monster.isDamaged && <div className="absolute inset-0 bg-red-500/30 mix-blend-overlay anim-shake pointer-events-none"></div>}
+                        <MonsterFx fx={monster.fx} />
                 </div>
                 <div className="flex gap-1 flex-wrap h-4 overflow-hidden items-start mt-0.5 content-start">
                     {buffs.map((b, i) => (

@@ -66,6 +66,40 @@ html, body {
 .anim-shake { animation: damage-shake 0.3s ease-in-out; }
 
 @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- 被弾・回復・バフの簡易演出（初代ポケモン程度の軽いもの） --- */
+/* 被弾: カードごと横に揺れる */
+@keyframes fx-hit {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-6px); }
+    30% { transform: translateX(6px); }
+    45% { transform: translateX(-4px); }
+    60% { transform: translateX(4px); }
+    80% { transform: translateX(-2px); }
+}
+.fx-hit { animation: fx-hit 0.45s ease-in-out; }
+
+/* 被弾: 属性色のフラッシュ。2回明滅させる */
+@keyframes fx-flash {
+    0%, 100% { opacity: 0; }
+    20%, 60% { opacity: 0.75; }
+    40%, 80% { opacity: 0.15; }
+}
+.fx-flash { animation: fx-flash 0.45s ease-in-out; }
+
+/* 回復: 下から上へ緑の光 */
+@keyframes fx-heal {
+    0% { opacity: 0; transform: translateY(8px); }
+    35% { opacity: 0.7; }
+    100% { opacity: 0; transform: translateY(-10px); }
+}
+.fx-heal { animation: fx-heal 0.7s ease-out; }
+
+/* バフ/デバフ: 矢印がスッと動いて消える */
+@keyframes fx-buff { 0% { opacity: 0; transform: translateY(6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-12px); } }
+.fx-buff { animation: fx-buff 0.7s ease-out; }
+@keyframes fx-debuff { 0% { opacity: 0; transform: translateY(-6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(12px); } }
+.fx-debuff { animation: fx-debuff 0.7s ease-out; }
 .anim-fade-in { animation: fade-in-up 0.3s ease-out forwards; }
 
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }

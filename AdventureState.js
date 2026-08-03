@@ -108,7 +108,10 @@ const grantExp = window.grantExp = (instance, amount) => {
 };
 
 // 技を1つ習得する（プレイヤーが選択したもの）
-const learnMove = window.learnMove = (instance, moveName, dbMoves) => {
+// 装備に空きがあれば自動で装備する。空きが無い場合は「覚えるだけ」で止め、
+// どれと入れ替えるかは呼び出し側（UI）がプレイヤーに選ばせる。
+// replace に装備中の技名を渡すと、その技と入れ替える。
+const learnMove = window.learnMove = (instance, moveName, dbMoves, replace = null) => {
     // 覚えられる技が残っていない場合に null が渡ることがある（習得スキップ）
     if (!moveName) return instance;
     if (instance.knownMoves.includes(moveName)) return instance;
@@ -116,23 +119,17 @@ const learnMove = window.learnMove = (instance, moveName, dbMoves) => {
     const knownMoves = [...instance.knownMoves, moveName];
     let equippedMoves = instance.equippedMoves;
 
-    // 覚えた技を自動で装備する。空きがあれば追加、無ければ
-    // より弱い装備中の攻撃技と入れ替える（拠点で手動変更も可能）。
-    if (dbMoves) {
-        const d = dbMoves[moveName];
-        if (equippedMoves.length < 3) {
-            equippedMoves = [...equippedMoves, moveName];
-        } else if (d && d.category !== 'status') {
-            const weakest = equippedMoves
-                .filter(m => dbMoves[m] && dbMoves[m].category !== 'status')
-                .sort((a, b) => (dbMoves[a].power || 0) - (dbMoves[b].power || 0))[0];
-            if (weakest && (dbMoves[weakest].power || 0) < (d.power || 0)) {
-                equippedMoves = equippedMoves.map(m => (m === weakest ? moveName : m));
-            }
-        }
+    if (replace && equippedMoves.includes(replace)) {
+        equippedMoves = equippedMoves.map(m => (m === replace ? moveName : m));
+    } else if (equippedMoves.length < 3) {
+        equippedMoves = [...equippedMoves, moveName];
     }
     return { ...instance, knownMoves, equippedMoves };
 };
+
+// 装備が埋まっているか（習得時に入れ替え選択が必要かの判定）
+const needsMoveReplace = window.needsMoveReplace = (instance) =>
+    (instance.equippedMoves || []).length >= 3;
 
 // 装備技を差し替える（拠点でのみ。最大3つ）
 const setEquippedMoves = window.setEquippedMoves = (instance, moves) => {
