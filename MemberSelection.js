@@ -126,7 +126,7 @@ const MemberSelection = ({ myParty, enemyParty, onComplete, onBack, isOnline, ro
      const displayEnemyParty = isOnline ? (onlineOpponentParty || null) : enemyParty;
 
      return (
-         <div className="flex flex-col h-full bg-slate-900 p-6 text-center text-white justify-center relative">
+         <div className="flex flex-col h-full bg-slate-900 p-4 text-center text-white justify-center relative">
              {isAiThinking && (
                  <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center flex-col">
                      <div className="loading-spinner mb-4"></div>
@@ -180,7 +180,7 @@ const MemberSelection = ({ myParty, enemyParty, onComplete, onBack, isOnline, ro
                      )}
                  </div>
 
-                 <div className={`grid grid-cols-2 gap-2 flex-1 ${iAmReady ? 'opacity-disabled' : ''}`}>
+                 <div className={`grid grid-cols-2 gap-2 flex-1 min-h-0 overflow-y-auto content-start ${iAmReady ? 'opacity-disabled' : ''}`}>
                      {currentParty.map((mon, idx) => {
                          const order = selectedIndices.indexOf(idx);
                          const isSelected = order !== -1;
@@ -201,7 +201,7 @@ const MemberSelection = ({ myParty, enemyParty, onComplete, onBack, isOnline, ro
                  {iAmReady && <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white font-teko text-xl tracking-widest rounded">WAITING...</div>}
              </div>
 
-             <div className="flex gap-2 h-12 flex-none">
+             <div className="flex gap-2 h-12 flex-none safe-bottom box-content">
                  {!iAmReady && <button onClick={onBack} className="w-1/3 bg-gray-700 rounded text-gray-300 font-bold hover:bg-gray-600 transition">BACK</button>}
                  <button onClick={handleStart} disabled={selectedIndices.length !== 2 || iAmReady || (isOnline && !displayEnemyParty)} className={`flex-1 rounded font-bold text-white transition ${selectedIndices.length === 2 && (!isOnline || (displayEnemyParty && !iAmReady)) ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>{isOnline ? (iAmReady ? 'WAITING...' : 'READY') : 'BATTLE START'}</button>
              </div>
