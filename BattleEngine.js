@@ -1,6 +1,6 @@
 const { useState, useEffect, useRef } = React;
 const { doc, onSnapshot, updateDoc } = window.fb;
-const { db, ResultModal, ProgressBar, MonsterCard, getStatMultiplier, getTypeMultiplier, createLCG, CONSTANTS, TYPE_BG, TYPE_NAMES, getBestAIAction, getGeminiAction, getLevelMultiplier } = window;
+const { db, ResultModal, ProgressBar, MonsterCard, MonsterDetailModal, getStatMultiplier, getTypeMultiplier, createLCG, CONSTANTS, TYPE_BG, TYPE_NAMES, getBestAIAction, getGeminiAction, getLevelMultiplier } = window;
 
 const BattleEngine = ({
     myParty, enemyParty, initialMyField, initialEnemyField,
@@ -25,6 +25,8 @@ const BattleEngine = ({
      const [showSwitchUI, setShowSwitchUI] = useState(false);
      const [forcedSwitchNeeded, setForcedSwitchNeeded] = useState(false);
      const [resultModal, setResultModal] = useState(null);
+     // タップで開くステータス詳細 { monster, isAlly }
+     const [statDetail, setStatDetail] = useState(null);
      const myStateRef = useRef(myState); const enemyStateRef = useRef(enemyState);
      const myFieldRef = useRef(myField); const enemyFieldRef = useRef(enemyField);
 
@@ -676,6 +678,15 @@ const BattleEngine = ({
                 <div className="absolute inset-0 bg-slate-950/40"></div>
             </div>
 
+            {statDetail && (
+                <MonsterDetailModal
+                    monster={statDetail.monster}
+                    showMoves={statDetail.isAlly}
+                    dbMoves={dbMoves}
+                    onClose={() => setStatDetail(null)}
+                />
+            )}
+
             <ResultModal
                 result={resultModal}
                 exitLabel={adventureMode ? 'CONTINUE' : 'RETURN TO TITLE'}
@@ -690,7 +701,7 @@ const BattleEngine = ({
                         if (enemyField.includes(i) || m.currentHp <= 0) return null;
                         const tBg = TYPE_BG[m.type] || TYPE_BG['normal'];
                         return (
-                            <div key={i} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group">
+                            <div key={i} onClick={() => setStatDetail({ monster: m, isAlly: false })} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group cursor-pointer">
                                 <div className="w-full aspect-square rounded overflow-hidden relative mb-0.5 bg-slate-900">
                                      {m.img ? ( <img src={m.img} className={`w-full h-full object-contain opacity-80 ${m.status === 'poison' ? 'status-poison-tint' : ''}`} /> ) : ( <div className={`w-full h-full ${tBg} opacity-50`}></div> )}
                                      {m.status === 'poison' && (
@@ -716,7 +727,9 @@ const BattleEngine = ({
                                 if (phase === 'command' && selectingMove) {
                                     const mData = dbMoves[selectingMove];
                                     if (mData && (mData.target === 'single' || mData.target === 'enemy' || mData.target === 'any_single')) handleCommandSelect('move', { moveName: selectingMove, targetSlot: slot, targetSide: 'enemy' });
+                                    return; // ターゲット選択中は詳細を開かない（誤タップ防止）
                                 }
+                                if (mon) setStatDetail({ monster: mon, isAlly: false });
                             }}>
                                 <MonsterCard monster={mon} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'single' || dbMoves[selectingMove].target === 'enemy' || dbMoves[selectingMove].target === 'any_single') && mon && mon.currentHp > 0} compact={true} />
                             </div>
@@ -753,7 +766,7 @@ const BattleEngine = ({
                         if (myField.includes(i) || m.currentHp <= 0) return null;
                         const tBg = TYPE_BG[m.type] || TYPE_BG['normal'];
                         return (
-                            <div key={i} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group">
+                            <div key={i} onClick={() => setStatDetail({ monster: m, isAlly: true })} className="w-14 h-16 bg-slate-800 border border-slate-600 rounded p-0.5 flex flex-col items-center shadow-lg relative group cursor-pointer">
                                 <div className="w-full aspect-square rounded overflow-hidden relative mb-0.5 bg-slate-900">
                                      {m.img ? ( <img src={m.img} className={`w-full h-full object-contain opacity-80 ${m.status === 'poison' ? 'status-poison-tint' : ''}`} /> ) : ( <div className={`w-full h-full ${tBg} opacity-50`}></div> )}
                                      {m.status === 'poison' && (
@@ -781,7 +794,9 @@ const BattleEngine = ({
                                 if (phase === 'command' && selectingMove) {
                                     const mData = dbMoves[selectingMove];
                                     if (mData && (mData.target === 'ally' || mData.target === 'any_single')) handleCommandSelect('move', { moveName: selectingMove, targetSlot: slot, targetSide: 'player' });
+                                    return; // ターゲット選択中は詳細を開かない（誤タップ防止）
                                 }
+                                if (mon) setStatDetail({ monster: mon, isAlly: true });
                             }}>
                                 <MonsterCard monster={mon} isActive={isActing} isSelected={isActing} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'ally' || dbMoves[selectingMove].target === 'any_single') && mon && mon.currentHp > 0} />
                                 {isActing && <div className="absolute -top-8 left-0 w-full text-center text-xs text-yellow-400 font-bold animate-bounce z-30">▼ COMMAND</div>}

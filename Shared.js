@@ -184,6 +184,100 @@ const Modal = window.Modal = ({ title, children, onClose }) => {
     );
 };
 
+// バトル中にモンスター画像をタップして開く詳細ステータス。
+// 敵の技構成は伏せる（showMoves=false）。ステータスは戦略判断のため両陣営とも公開する。
+const MonsterDetailModal = window.MonsterDetailModal = ({ monster, showMoves, dbMoves, onClose }) => {
+    if (!monster) return null;
+    const statMul = window.getStatMultiplier || (() => 1);
+    const bg = TYPE_BG[monster.type] || TYPE_BG['normal'];
+
+    const rows = [
+        { key: 'atk', label: 'ATK', base: monster.atk, color: 'text-red-400' },
+        { key: 'def', label: 'DEF', base: monster.def, color: 'text-blue-400' },
+        { key: 'spd', label: 'SPD', base: monster.spd, color: 'text-yellow-400' }
+    ];
+    const hpPct = monster.maxHp ? Math.max(0, Math.round(monster.currentHp / monster.maxHp * 100)) : 0;
+
+    return (
+        <div className="absolute inset-0 z-[150] bg-black/80 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+            <div className="w-full max-w-[300px] bg-slate-900 border border-slate-600 rounded-lg overflow-hidden shadow-2xl"
+                onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-2 p-2 border-b border-slate-700 bg-slate-950">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold text-white ${bg}`}>{TYPE_NAMES[monster.type] || '?'}</span>
+                    <span className="font-bold text-sm text-white truncate flex-1">{monster.name}</span>
+                    {monster.level ? <span className="text-[11px] text-slate-400">Lv{monster.level}</span> : null}
+                </div>
+
+                <div className="p-2">
+                    <div className="w-full aspect-square max-h-32 bg-slate-950 rounded overflow-hidden mb-2 flex items-center justify-center">
+                        {monster.img
+                            ? <img src={monster.img} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                            : <span className="text-slate-600 text-xs font-teko">NO IMAGE</span>}
+                    </div>
+
+                    <div className="mb-2">
+                        <div className="flex justify-between text-[10px] text-slate-300 mb-0.5">
+                            <span className="text-green-400 font-bold">HP</span>
+                            <span>{monster.currentHp} / {monster.maxHp}</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-800 rounded overflow-hidden">
+                            <div className={`h-full ${hpPct < 25 ? 'bg-red-500' : hpPct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: hpPct + '%' }} />
+                        </div>
+                    </div>
+
+                    {rows.map(r => {
+                        const stage = (monster.buffs && monster.buffs[r.key]) || 0;
+                        const mul = statMul(stage);
+                        const eff = Math.floor((r.base || 0) * mul);
+                        const arrow = stage > 0 ? (stage >= 2 ? '↑↑' : '↑') : (stage < 0 ? (stage <= -2 ? '↓↓' : '↓') : '');
+                        const arrowColor = stage > 0 ? 'text-red-400' : stage < 0 ? 'text-blue-400' : '';
+                        return (
+                            <div key={r.key} className="flex items-center justify-between text-[11px] py-0.5 border-b border-slate-800">
+                                <span className={`font-bold ${r.color}`}>{r.label}</span>
+                                <span className="text-slate-200">
+                                    {eff}
+                                    {stage !== 0 && <span className="text-slate-500"> （{r.base}）</span>}
+                                    {arrow && <span className={`ml-1 font-bold ${arrowColor}`}>{arrow}</span>}
+                                </span>
+                            </div>
+                        );
+                    })}
+
+                    {monster.status && (
+                        <div className="mt-2 text-[10px] text-purple-300 bg-purple-950/60 border border-purple-700 rounded px-2 py-1">
+                            状態異常: {monster.status === 'poison' ? '毒' : monster.status}
+                        </div>
+                    )}
+                    {monster.isProtected && (
+                        <div className="mt-1 text-[10px] text-blue-300 bg-blue-950/60 border border-blue-700 rounded px-2 py-1">
+                            守りの体勢
+                        </div>
+                    )}
+
+                    {showMoves ? (
+                        <div className="mt-2">
+                            <div className="text-[9px] text-slate-500 mb-1">MOVES</div>
+                            {(monster.selectedMoves || []).map(mv => {
+                                const d = (dbMoves && dbMoves[mv]) || {};
+                                return (
+                                    <div key={mv} className="flex justify-between items-center text-[10px] py-0.5 border-b border-slate-800">
+                                        <span className="text-slate-200 truncate">{mv}</span>
+                                        <span className="text-slate-400 flex-none ml-2">{TYPE_NAMES[d.type] || ''} P:{d.power || '-'}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="mt-2 text-[10px] text-slate-500 text-center">相手の技構成は不明</div>
+                    )}
+                </div>
+
+                <button onClick={onClose} className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">CLOSE</button>
+            </div>
+        </div>
+    );
+};
+
 const ResultModal = window.ResultModal = ({ result, onExit, exitLabel = 'RETURN TO TITLE' }) => {
     if (!result) return null;
     return (
