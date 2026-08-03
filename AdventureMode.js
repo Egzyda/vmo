@@ -175,7 +175,13 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         const flavor = W.pickFlavor(outcome);
         if (outcome === 'normal' || outcome === 'elite') {
             addLog(outcome === 'elite' ? '強化個体と遭遇した' : 'ヴァーモンと遭遇した', outcome === 'elite' ? 'bad' : 'info');
-            enterBattle(outcome);
+            setEvent({
+                icon: outcome === 'elite' ? '⚔️' : '👁️',
+                title: outcome === 'elite' ? '強化個体、出現！' : 'ヴァーモンと遭遇！',
+                desc: flavor,
+                tone: outcome === 'elite' ? 'bad' : 'info',
+                onConfirm: () => enterBattle(outcome)
+            });
         } else if (outcome === 'item') {
             const cheap = W.SHOP_ITEMS.filter(i => i.price <= 300);
             const got = cheap[Math.floor(Math.random() * cheap.length)];
@@ -394,15 +400,18 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     // 「踏んだ／拾った」手応えを出すのと、下端のトーストを見落とさないための対応
     const EventModal = () => {
         if (!event) return null;
-        const bad = event.tone === 'bad';
+        const style = event.tone === 'bad' ? { border: 'border-red-500 bg-red-950/90', text: 'text-red-200' }
+            : event.tone === 'info' ? { border: 'border-cyan-400 bg-slate-900/95', text: 'text-cyan-200' }
+                : { border: 'border-yellow-400 bg-slate-900/95', text: 'text-yellow-200' };
+        const close = () => { const cb = event.onConfirm; setEvent(null); if (cb) cb(); };
         return (
             <div className="absolute inset-0 z-[140] bg-black/80 flex items-center justify-center p-6 animate-fade-in"
-                onClick={() => setEvent(null)}>
-                <div className={`w-full max-w-[300px] rounded-lg border-2 p-5 text-center shadow-2xl ${bad ? 'border-red-500 bg-red-950/90' : 'border-yellow-400 bg-slate-900/95'}`}>
+                onClick={close}>
+                <div className={`w-full max-w-[300px] rounded-lg border-2 p-5 text-center shadow-2xl ${style.border}`}>
                     <div className="text-5xl leading-none mb-3">{event.icon}</div>
-                    <div className={`font-bold text-lg mb-2 ${bad ? 'text-red-200' : 'text-yellow-200'}`}>{event.title}</div>
+                    <div className={`font-bold text-lg mb-2 ${style.text}`}>{event.title}</div>
                     <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">{event.desc}</p>
-                    <div className="mt-4 text-[10px] text-slate-400 animate-pulse">▼ タップして続ける</div>
+                    <div className="mt-4 text-[10px] text-slate-400 animate-pulse">▼ タップして{event.onConfirm ? '戦闘開始' : '続ける'}</div>
                 </div>
             </div>
         );
