@@ -56,13 +56,16 @@ const toBattleMonster = window.toBattleMonster = (instance, baseData, opts = {})
         selectedMoves: (instance.equippedMoves && instance.equippedMoves.length)
             ? instance.equippedMoves
             : [window.STARTER_MOVES[baseData.type]],
-        buffs: { atk: 0, def: 0, spd: 0 },
+        // 罠の持ち越し効果を戦闘開始状態へ反映する（SPEC 4.9 毒罠・弱体化罠）
+        buffs: instance.pendingDebuff
+            ? { atk: 0, def: 0, spd: 0, [instance.pendingDebuff]: -1 }
+            : { atk: 0, def: 0, spd: 0 },
         isDamaged: false,
         isProtected: false,
         protectStreak: 0,
         lastTakenDamage: 0,
         lastTakenDamageSource: null,
-        status: null
+        status: instance.pendingStatus || null
     };
 };
 
