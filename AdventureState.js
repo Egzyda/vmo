@@ -9,6 +9,18 @@ const PARTY_LIMIT = window.ADVENTURE_PARTY_LIMIT = 4;
 // ------------------------------------------------------------
 // 保存するのは可変分だけ（id/level/exp/技/HP）。
 // 種族値・画像・技プールは常に dbMonsters から引き直す。
+// 既定の装備技。習得済みから「攻撃技を威力順に2つ + 補助技1つ」を選ぶ。
+// 単純に known.slice(0,3) にすると常に [属性下位技, タックル, 補助技] が並び、
+// レベルアップで覚えた上位攻撃技が永久に装備されないまま下位技で戦い続けることになる。
+const getDefaultEquipped = window.getDefaultEquipped = (knownMoves, dbMoves) => {
+    const atk = knownMoves.filter(m => dbMoves[m] && dbMoves[m].category !== 'status')
+        .sort((a, b) => (dbMoves[b].power || 0) - (dbMoves[a].power || 0));
+    const sup = knownMoves.filter(m => dbMoves[m] && dbMoves[m].category === 'status');
+    const out = atk.slice(0, 2);
+    if (sup.length) out.push(sup[0]); else out.push(...atk.slice(2, 3));
+    return out.filter(Boolean).slice(0, 3);
+};
+
 const createAdventureMonster = window.createAdventureMonster = (baseData, level, dbMoves) => {
     const lv = Math.max(1, Math.min(window.MAX_LEVEL, level || 1));
     const known = window.getKnownMovesOnCapture(baseData, lv, dbMoves);
@@ -18,7 +30,7 @@ const createAdventureMonster = window.createAdventureMonster = (baseData, level,
         level: lv,
         exp: 0,
         knownMoves: known,
-        equippedMoves: known.slice(0, 3),
+        equippedMoves: getDefaultEquipped(known, dbMoves),
         currentHp: stats.hp
     };
 };
@@ -40,7 +52,8 @@ const getEffectiveStats = window.getEffectiveStats = (instance, baseData) => {
 // 保存インスタンス + 種族データ → バトルエンジンが食える形に展開する
 const toBattleMonster = window.toBattleMonster = (instance, baseData, opts = {}) => {
     const tier = opts.tier || 'normal';
-    const statMult = window.ENEMY_STAT_MULTIPLIERS[tier] || 1;
+    // extraMult: フロア固有の追加補正（序盤の弱体個体など）
+    const statMult = (window.ENEMY_STAT_MULTIPLIERS[tier] || 1) * (opts.extraMult || 1);
     const s = getEffectiveStats(instance, baseData);
     const hp = Math.floor(s.hp * statMult);
     return {
@@ -95,11 +108,30 @@ const grantExp = window.grantExp = (instance, amount) => {
 };
 
 // 技を1つ習得する（プレイヤーが選択したもの）
-const learnMove = window.learnMove = (instance, moveName) => {
+const learnMove = window.learnMove = (instance, moveName, dbMoves) => {
     // 覚えられる技が残っていない場合に null が渡ることがある（習得スキップ）
     if (!moveName) return instance;
     if (instance.knownMoves.includes(moveName)) return instance;
-    return { ...instance, knownMoves: [...instance.knownMoves, moveName] };
+
+    const knownMoves = [...instance.knownMoves, moveName];
+    let equippedMoves = instance.equippedMoves;
+
+    // 覚えた技を自動で装備する。空きがあれば追加、無ければ
+    // より弱い装備中の攻撃技と入れ替える（拠点で手動変更も可能）。
+    if (dbMoves) {
+        const d = dbMoves[moveName];
+        if (equippedMoves.length < 3) {
+            equippedMoves = [...equippedMoves, moveName];
+        } else if (d && d.category !== 'status') {
+            const weakest = equippedMoves
+                .filter(m => dbMoves[m] && dbMoves[m].category !== 'status')
+                .sort((a, b) => (dbMoves[a].power || 0) - (dbMoves[b].power || 0))[0];
+            if (weakest && (dbMoves[weakest].power || 0) < (d.power || 0)) {
+                equippedMoves = equippedMoves.map(m => (m === weakest ? moveName : m));
+            }
+        }
+    }
+    return { ...instance, knownMoves, equippedMoves };
 };
 
 // 装備技を差し替える（拠点でのみ。最大3つ）

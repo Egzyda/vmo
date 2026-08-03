@@ -143,7 +143,12 @@ const getWildMoveSet = window.getWildMoveSet = (monster, floorPosition, dbMoves,
     const starter = STARTER_MOVES[monster.type];
     if (floorPosition <= 1) return [starter];
 
-    const pool = monster.moves || [];
+    // 序盤は威力上限内の技だけを抽選対象にする（ボスと同じ理由。
+    // 上限が無いと2階目の雑魚がP110を引き当て、下位技しか無いプレイヤーが即死する）
+    const cap = getFloorPowerCap(floorPosition);
+    const pool = (monster.moves || []).filter(m => !dbMoves[m] || (dbMoves[m].power || 0) <= cap);
+    if (!pool.length) return [starter];
+
     // 1→10階目で 0→6 に線形解放
     const realCount = Math.min(pool.length, Math.round((floorPosition - 1) / 9 * 6));
     const shuffled = [...pool].sort(() => rng() - 0.5);
@@ -163,21 +168,54 @@ const getWildMoveSet = window.getWildMoveSet = (monster, floorPosition, dbMoves,
 };
 
 // エリート/ボス: 威力順の攻撃技2つ + 補助技1つを機械的に自動編成
-const getEliteMoves = window.getEliteMoves = (monster, level, dbMoves) => {
-    const starting = getStartingMoves(monster);
-    // 下位技はエリート/ボスの枠を埋めるだけの弱技なので除外する
-    // （残りが無くなる場合のみフォールバックとして使う）
-    const known = getEnemyKnownMoves(monster, level, dbMoves).filter(m => !starting.includes(m));
+// 序盤フロアの敵が使える技の威力上限。
+// プレイヤーは最初の上位攻撃技をLv7（4階目相当）まで持てず、それまで下位技(P30-40)で戦う。
+// 敵だけが2階目からP110を振り回すと威力差2.75倍になり、
+// ステータス補正をいくら下げてもクリア不能になるため、敵側の技も同じペースで解禁する。
+const getFloorPowerCap = window.getFloorPowerCap = (floorPosition) => {
+    if (!floorPosition) return Infinity;
+    if (floorPosition <= 1) return 40;
+    if (floorPosition === 2) return 65;
+    if (floorPosition === 3) return 70;
+    if (floorPosition === 4) return 80;
+    if (floorPosition === 5) return 90;
+    if (floorPosition === 6) return 100;
+    return Infinity;
+};
 
-    const attack = known
-        .filter(m => dbMoves[m] && dbMoves[m].category !== 'status')
+const getEliteMoves = window.getEliteMoves = (monster, level, dbMoves, floorPosition) => {
+    const starting = getStartingMoves(monster);
+    const cap = getFloorPowerCap(floorPosition);
+    const levelGated = getEnemyKnownMoves(monster, level, dbMoves);
+
+    // 威力上限は候補6技すべてから選び直す。
+    // レベルで絞った後に上限を適用すると、残った1技が上限超えだった場合に
+    // フォールバックでその技をそのまま使ってしまい、上限が機能しない。
+    const poolAttacks = (monster.moves || [])
+        .filter(m => dbMoves[m] && dbMoves[m].category !== 'status' && !starting.includes(m))
         .sort((a, b) => (dbMoves[b].power || 0) - (dbMoves[a].power || 0));
-    const support = known.filter(m => dbMoves[m] && dbMoves[m].category === 'status');
+
+    const withinCap = poolAttacks.filter(m => (dbMoves[m].power || 0) <= cap);
+    let attack;
+    if (withinCap.length) {
+        attack = withinCap;
+    } else if (poolAttacks.length) {
+        attack = [poolAttacks[poolAttacks.length - 1]]; // 上限内が無ければ最弱の1つ
+    } else {
+        attack = [];
+    }
+    // 上限が無い（終盤）フロアではレベル解禁の制約を保つ
+    if (cap === Infinity) {
+        const gated = attack.filter(m => levelGated.includes(m));
+        if (gated.length) attack = gated;
+    }
+
+    const support = levelGated.filter(m => dbMoves[m] && dbMoves[m].category === 'status' && !starting.includes(m));
 
     const equipped = attack.slice(0, 2);
     const third = support[0] || attack[2];
     if (third) equipped.push(third);
-    return equipped.length ? equipped : [starter];
+    return equipped.length ? equipped : [starting[0]];
 };
 
 // ステータス補正（SPEC 4.10）
@@ -299,28 +337,32 @@ const FLOORS = window.FLOORS = [
     // B30はチュートリアル。自動編成だとシカバラスの単体攻撃がラッシュ(P90)しかなく、
     // 初期技(P30-40)しか持たないLv1パーティに対して火力差が2倍以上つくため技を手動指定する。
     // タックル=プレイヤーと同威力帯 / パワーチャージ=バフの存在を教える
-    { position: 1, id: 'B30', name: '第三実験区画', battles: 3, rests: 2, level: 2,
+    // wildStatMult: 序盤フロアの野生は「弱体個体」として種族値を割り引く。
+    // 下位技(P30-40)では敵HP(36-55)を削るのに4-6ターンかかり、その間の被弾累計が
+    // 自軍HP合計を超えてボス到達前に全滅していた。技の威力を上げても敵が同じ技を
+    // 使うため相殺されるので、敵の耐久・火力側を下げるのが有効。
+    { position: 1, id: 'B30', name: '第三実験区画', battles: 3, rests: 3, level: 2, wildStatMult: 0.7,
       bossTier: 'normal', bossLevel: 4, bossMoves: ['タックル', 'パワーチャージ'],
       wild: ['ヒノエナガ', 'コペゾー', 'ハナーネ'], boss: 'シカバラス', baseRate: 0.00, rampPerStep: 0.02 },
-    { position: 2, id: 'B29', name: '飼育プール', battles: 3, rests: 2, level: 4,
+    { position: 2, id: 'B29', name: '飼育プール', battles: 3, rests: 3, level: 4, wildStatMult: 0.8, bossTier: 'elite',
       wild: ['ジェケイダ', 'スイネーク', 'フラビット'], boss: 'イグニルフ', baseRate: 0.00, rampPerStep: 0.03 },
-    { position: 3, id: 'B28', name: '培養温室', battles: 4, rests: 2, level: 6,
+    { position: 3, id: 'B28', name: '培養温室', battles: 4, rests: 3, level: 6, wildStatMult: 0.8, bossTier: 'normal',
       wild: ['バラビィ', 'ビョウゲツ', 'モモ'], boss: 'ペパザール', baseRate: 0.02, rampPerStep: 0.03 },
-    { position: 4, id: 'B27', name: '光の研究室', battles: 4, rests: 2, level: 8,
+    { position: 4, id: 'B27', name: '光の研究室', battles: 4, rests: 3, level: 8, bossTier: 'elite',
       wild: ['ツキネ', 'リュミエット', 'オヌ・リン'], boss: 'ライトラ', baseRate: 0.04, rampPerStep: 0.04 },
-    { position: 5, id: 'B26', name: '闇の実験場', battles: 4, rests: 2, level: 10,
+    { position: 5, id: 'B26', name: '闇の実験場', battles: 4, rests: 3, level: 10, bossTier: 'elite',
       wild: ['ハリースト', 'モスパーク', 'ウィデビット'], boss: 'エルダーク', baseRate: 0.06, rampPerStep: 0.04 },
-    { position: 6, id: 'B25', name: '混合エリア(炎+水)', battles: 5, rests: 3, level: 12,
+    { position: 6, id: 'B25', name: '混合エリア(炎+水)', battles: 5, rests: 3, level: 12, bossTier: 'elite', wildStatMult: 0.9,
       wild: ['エンガール', 'ビョウゲツ', 'ヒノエナガ', 'コペゾー'], boss: 'レイコーン', baseRate: 0.10, rampPerStep: 0.05 },
-    { position: 7, id: 'B24', name: '混合エリア(草+光)', battles: 5, rests: 3, level: 14,
+    { position: 7, id: 'B24', name: '混合エリア(草+光)', battles: 5, rests: 3, level: 14, bossTier: 'elite', wildStatMult: 0.9,
       wild: ['シバフールー', 'オヌ・リン', 'ハナーネ', 'ツキネ'], boss: 'アカリード', baseRate: 0.13, rampPerStep: 0.05 },
-    { position: 8, id: 'B23', name: '廃棄エリア', battles: 5, rests: 3, level: 16,
+    { position: 8, id: 'B23', name: '廃棄エリア', battles: 5, rests: 3, level: 16, bossTier: 'elite', wildStatMult: 0.9,
       wild: ['ウィデビット', 'ハリースト', 'モスパーク', 'スイネーク'], boss: 'ザルディヴァ', baseRate: 0.16, rampPerStep: 0.06 },
-    { position: 9, id: 'B22', name: '高速テストエリア', battles: 5, rests: 3, level: 18,
+    { position: 9, id: 'B22', name: '高速テストエリア', battles: 5, rests: 3, level: 18, bossTier: 'elite', wildStatMult: 0.9,
       wild: ['ジェケイダ', 'リュミエット', 'ツキネ', 'ハリースト'], boss: 'フィンレーツ', baseRate: 0.19, rampPerStep: 0.07 },
-    { position: 10, id: 'B21', name: '重装テストエリア', battles: 6, rests: 3, level: 19,
+    { position: 10, id: 'B21', name: '重装テストエリア', battles: 6, rests: 3, level: 19, bossTier: 'elite', wildStatMult: 0.9,
       wild: ['ロクザール', 'ジェリスタル', 'シバフールー', 'フラビット'], boss: 'マグマス', baseRate: 0.25, rampPerStep: 0.08 },
-    { position: 11, id: 'B20', name: '中間管理エリア', battles: 6, rests: 4, level: 20,
+    { position: 11, id: 'B20', name: '中間管理エリア', battles: 6, rests: 4, level: 20, bossTier: 'elite', wildStatMult: 0.9,
       wild: ['シャコマル', 'デヴィートル', 'オベアー', 'レイコーン'], boss: 'ミレメント', baseRate: 0.30, rampPerStep: 0.08 }
 ];
 
