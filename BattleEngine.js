@@ -254,6 +254,7 @@ const BattleEngine = ({
                         const target = targetSideState[tIdx];
                         target.currentHp = Math.max(0, target.currentHp - dmg);
                         target.isDamaged = true;
+                        target.fx = { kind: 'damage', type: 'normal' };
                         addLog(`${target.name}に${dmg}のダメージ(倍返し)！`);
                         if(action.side === 'player') setEnemyState([...enemyStateRef.current]); else setMyState([...myStateRef.current]);
                     } else {
@@ -346,6 +347,7 @@ const BattleEngine = ({
                             const actualDamage = Math.min(targetMon.currentHp, damage);
                             targetMon.currentHp -= actualDamage;
                             targetMon.isDamaged = true;
+                            targetMon.fx = { kind: 'damage', type: moveData.type };
                             totalActualDamageDealt += actualDamage;
                             addLog(`${targetMon.name}に${damage}のダメージ！`);
                         }
@@ -390,6 +392,7 @@ const BattleEngine = ({
                             const actualDamage = Math.min(targetMon.currentHp, damage);
                             targetMon.currentHp -= actualDamage;
                             targetMon.isDamaged = true;
+                            targetMon.fx = { kind: 'damage', type: moveData.type };
                             totalActualDamageDealt += actualDamage;
 
                             targetMon.lastTakenDamage = damage; targetMon.lastTakenDamageSource = action.actorSlot; let msg = `${targetMon.name}に${damage}ダメージ`; let msgType = 'normal'; if (typeMod > 1.0) { msg += "！弱点！！"; msgType = 'important'; } else if (typeMod < 1.0 && typeMod > 0) { msg += "……半減……"; msgType = 'weak'; } addLog(msg, msgType);
@@ -414,6 +417,7 @@ const BattleEngine = ({
                                 const percent = moveData.heal_percent || CONSTANTS.HEAL_PERCENT;
                                 const heal = Math.floor(targetMon.maxHp * percent);
                                 targetMon.currentHp = Math.min(targetMon.maxHp, targetMon.currentHp + heal);
+                                targetMon.fx = { kind: 'heal' };
                                 addLog(`${targetMon.name}を回復`);
                             } else if (moveData.effect.startsWith('buff')) {
                                 const statMap = {'buff_atk':'atk', 'buff_def':'def', 'buff_spd':'spd'};
@@ -421,6 +425,7 @@ const BattleEngine = ({
                                 if (targetMon.buffs[s] >= 2) addLog(`${targetMon.name}の${s.toUpperCase()}はもう上がらない！`);
                                 else {
                                     targetMon.buffs[s] += 1;
+                                    targetMon.fx = { kind: 'buff' };
                                     addLog(`${targetMon.name}の${s.toUpperCase()}が上がった`);
                                 }
                             } else if (moveData.effect.startsWith('debuff')) {
@@ -429,6 +434,7 @@ const BattleEngine = ({
                                 if (targetMon.buffs[s] <= -2) addLog(`${targetMon.name}の${s.toUpperCase()}はもう下がらない！`);
                                 else {
                                     targetMon.buffs[s] -= 1;
+                                    targetMon.fx = { kind: 'debuff' };
                                     addLog(`${targetMon.name}の${s.toUpperCase()}が下がった`);
                                 }
                             } else if (moveData.effect === 'reverse_stats') {
@@ -515,7 +521,7 @@ const BattleEngine = ({
             }
 
             setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
-            setTimeout(() => { const clearShake = (s) => s.forEach(m => m.isDamaged = false); clearShake(myStateRef.current); clearShake(enemyStateRef.current); setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]); }, 500);
+            setTimeout(() => { const clearShake = (s) => s.forEach(m => { m.isDamaged = false; m.fx = null; }); clearShake(myStateRef.current); clearShake(enemyStateRef.current); setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]); }, 500);
         }
 
         if(isOnline) {
@@ -526,7 +532,7 @@ const BattleEngine = ({
         }
 
         await wait(1000);
-        const cleanupTurn = (s) => s.forEach(m => { m.isProtected = false; m.isDamaged = false; });
+        const cleanupTurn = (s) => s.forEach(m => { m.isProtected = false; m.isDamaged = false; m.fx = null; });
         cleanupTurn(myStateRef.current); cleanupTurn(enemyStateRef.current);
         setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
         if(!await checkWin()) await checkPostTurn();
@@ -544,6 +550,7 @@ const BattleEngine = ({
                     const dmg = Math.max(1, Math.floor(mon.maxHp / 10));
                     mon.currentHp = Math.max(0, mon.currentHp - dmg);
                     mon.isDamaged = true;
+                    mon.fx = { kind: 'damage', type: 'dark' };
                     addLog(`${mon.name}は毒のダメージを受けている！(-${dmg})`);
                     poisonOccurred = true;
                 }
@@ -552,7 +559,7 @@ const BattleEngine = ({
         if (poisonOccurred) {
             setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
             await new Promise(r => setTimeout(r, 800));
-            const clearShake = (s) => s.forEach(m => m.isDamaged = false);
+            const clearShake = (s) => s.forEach(m => { m.isDamaged = false; m.fx = null; });
             clearShake(myStateRef.current); clearShake(enemyStateRef.current);
             setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
         }
@@ -713,7 +720,7 @@ const BattleEngine = ({
                                 <div className="w-full px-0.5 mb-0.5">
                                     <ProgressBar current={m.currentHp} max={m.maxHp} colorClass={m.currentHp < m.maxHp * 0.2 ? 'bg-red-500' : (m.currentHp < m.maxHp * 0.5 ? 'bg-yellow-500' : 'bg-green-500')} />
                                 </div>
-                                <div className="font-bold text-[8px] truncate text-white font-zen text-center w-full">{m.name}</div>
+                                
                             </div>
                         );
                     })}
@@ -778,7 +785,7 @@ const BattleEngine = ({
                                 <div className="w-full px-0.5 mb-0.5">
                                     <ProgressBar current={m.currentHp} max={m.maxHp} colorClass={m.currentHp < m.maxHp * 0.2 ? 'bg-red-500' : (m.currentHp < m.maxHp * 0.5 ? 'bg-yellow-500' : 'bg-green-500')} />
                                 </div>
-                                <div className="font-bold text-[8px] truncate text-white font-zen text-center w-full">{m.name}</div>
+                                
                             </div>
                         );
                     })}
@@ -833,7 +840,55 @@ const BattleEngine = ({
                                 <button onClick={() => setShowSwitchUI(true)} className="w-12 bg-blue-900/20 border border-blue-800 rounded flex flex-col items-center justify-center text-blue-300 font-bold text-[10px] hover:bg-blue-900/40 transition-colors"><span>⇄</span><span>交代</span></button>
                             </div>
                         ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-yellow-400 text-sm animate-pulse"><span>ターゲットを選択してください</span><button onClick={() => setSelectingMove(null)} className="mt-2 text-xs bg-slate-800 px-3 py-1 rounded text-slate-400 hover:bg-slate-700">CANCEL</button></div>
+                            /* 片手操作でも届くよう、ターゲット選択もコマンド欄（画面下部）で行える。
+                               盤面のカードを直接タップする従来の方法も引き続き使える。 */
+                            (() => {
+                                const mData = dbMoves[selectingMove] || {};
+                                const targetsEnemy = ['single', 'enemy', 'any_single'].includes(mData.target);
+                                const targetsAlly = ['ally', 'any_single'].includes(mData.target);
+                                const opts = [];
+                                if (targetsEnemy) {
+                                    enemyField.forEach((pidx, slot) => {
+                                        const mon = pidx !== -1 ? enemyState[pidx] : null;
+                                        if (mon && mon.currentHp > 0) opts.push({ mon, slot, side: 'enemy' });
+                                    });
+                                }
+                                if (targetsAlly) {
+                                    myField.forEach((pidx, slot) => {
+                                        const mon = pidx !== -1 ? myState[pidx] : null;
+                                        if (mon && mon.currentHp > 0) opts.push({ mon, slot, side: 'player' });
+                                    });
+                                }
+                                return (
+                                    <div className="h-full flex flex-col p-1">
+                                        <div className="text-yellow-400 text-xs text-center mb-1 flex-none">ターゲットを選択</div>
+                                        <div className="flex-1 flex gap-2 min-h-0">
+                                            <div className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scroll">
+                                                {opts.map(o => {
+                                                    const tBg = TYPE_BG[o.mon.type] || TYPE_BG['normal'];
+                                                    const pct = Math.max(0, Math.round(o.mon.currentHp / o.mon.maxHp * 100));
+                                                    return (
+                                                        <button key={o.side + o.slot}
+                                                            onClick={() => handleCommandSelect('move', { moveName: selectingMove, targetSlot: o.slot, targetSide: o.side })}
+                                                            className={`flex items-center gap-2 px-2 py-2 rounded border text-left transition-colors ${o.side === 'enemy' ? 'bg-red-950/40 border-red-800 hover:bg-red-900/40' : 'bg-blue-950/40 border-blue-800 hover:bg-blue-900/40'}`}>
+                                                            <span className={`text-[9px] px-1 py-0.5 rounded text-white font-bold flex-none ${tBg}`}>{TYPE_NAMES[o.mon.type]}</span>
+                                                            <span className="text-sm font-bold text-white truncate flex-1">{o.mon.name}</span>
+                                                            <span className="text-[10px] text-slate-300 flex-none">{o.mon.currentHp}/{o.mon.maxHp}</span>
+                                                            <span className="w-10 h-1.5 bg-slate-800 rounded overflow-hidden flex-none">
+                                                                <span className={`block h-full ${pct < 25 ? 'bg-red-500' : pct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: pct + '%' }} />
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <button onClick={() => setSelectingMove(null)}
+                                                className="w-12 bg-slate-800 border border-slate-600 rounded flex items-center justify-center text-slate-300 font-bold text-[10px] flex-none">
+                                                戻る
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })()
                         )}
                     </div>
                  )}
