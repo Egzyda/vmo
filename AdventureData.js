@@ -363,21 +363,64 @@ const FLOORS = window.FLOORS = [
     { position: 10, id: 'B21', name: '重装テストエリア', battles: 6, rests: 3, level: 19, bossTier: 'elite', wildStatMult: 0.9,
       wild: ['ロクザール', 'ジェリスタル', 'シバフールー', 'フラビット'], boss: 'マグマス', baseRate: 0.25, rampPerStep: 0.08 },
     { position: 11, id: 'B20', name: '中間管理エリア', battles: 6, rests: 4, level: 20, bossTier: 'elite', wildStatMult: 0.9,
-      wild: ['シャコマル', 'デヴィートル', 'オベアー', 'レイコーン'], boss: 'ミレメント', baseRate: 0.30, rampPerStep: 0.08 }
-];
+      wild: ['シャコマル', 'デヴィートル', 'オベアー', 'レイコーン'], boss: 'ミレメント', baseRate: 0.30, rampPerStep: 0.08 },
 
-// B19〜B1（続編フェーズ）。ゾーン単位の骨格のみ定義し、実装時に個別フロアへ展開する
-const LATE_ZONES = window.LATE_ZONES = [
-    { zone: 'A', range: ['B19', 'B16'], name: '警備強化区画', battles: 5, rests: 3,
-      bosses: ['モモ', 'ジェリスタル', 'アルブラン', 'バラビィ'] },
-    { zone: 'B', range: ['B15', 'B11'], name: '崩壊隔離区画', battles: 6, rests: 4,
-      bosses: ['イグニルフ', 'ツルギ', 'ベルフレム', 'シザール', 'アッピオン'] },
-    { zone: 'C', range: ['B10', 'B6'], name: 'コアシステム区画', battles: 6, rests: 4,
-      bosses: ['ユッキング', 'ストロビー', 'ボルクマ', 'エルシェント', 'グラシオン'] },
-    { zone: 'D', range: ['B5', 'B2'], name: '最終防衛ライン', battles: 7, rests: 5,
-      bosses: ['リフェロス', 'オベアー', 'エルダーク', 'マグマス'] },
-    { zone: 'FINAL', range: ['B1', 'B1'], name: '地上ゲート', battles: 1, rests: 0,
-      bosses: ['ヴァーサス'] }
+    // ===== B19〜B1（ゾーンA〜D + 地上ゲート）SPEC 4.11b =====
+    // ゾーン内のボスは「弱→強」の順で各フロアに割り当て、ゾーン最終フロアだけ
+    // bossTier: 'boss'(1.5倍)にして節目を強調する（それ以外は 'elite' 1.2倍）。
+    // 雑魚は既出モンスターの使い回し。ゾーンAクリア後はゾーンAのボス格を、
+    // ゾーンBクリア後はゾーンBのボス格を…という具合に「元ボスが並みの敵になる」
+    // 演出を1体ずつ混ぜる（B20の踏襲）。
+    { position: 12, id: 'B19', name: '監視回廊', battles: 5, rests: 3, level: 23, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['ヒノエナガ', 'コペゾー', 'ハナーネ', 'ジェケイダ'], boss: 'モモ', baseRate: 0.31, rampPerStep: 0.08 },
+    { position: 13, id: 'B18', name: '非常呼集区画', battles: 5, rests: 3, level: 25, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['スイネーク', 'フラビット', 'ビョウゲツ', 'ツキネ'], boss: 'ジェリスタル', baseRate: 0.32, rampPerStep: 0.08 },
+    { position: 14, id: 'B17', name: '検問ゲート', battles: 5, rests: 3, level: 27, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['リュミエット', 'オヌ・リン', 'ハリースト', 'モスパーク'], boss: 'アルブラン', baseRate: 0.33, rampPerStep: 0.08 },
+    { position: 15, id: 'B16', name: '武装保管庫', battles: 5, rests: 3, level: 29, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['ウィデビット', 'エンガール', 'シバフールー', 'ロクザール'], boss: 'バラビィ', baseRate: 0.34, rampPerStep: 0.08 },
+
+    { position: 16, id: 'B15', name: '亀裂拡大区画', battles: 6, rests: 4, level: 32, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['シャコマル', 'デヴィートル', 'レイコーン', 'モモ'], boss: 'イグニルフ', baseRate: 0.35, rampPerStep: 0.09 },
+    { position: 17, id: 'B14', name: '隔離病棟跡', battles: 6, rests: 4, level: 35, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['ペパザール', 'ライトラ', 'アカリード', 'ジェリスタル'], boss: 'ツルギ', baseRate: 0.36, rampPerStep: 0.09 },
+    { position: 18, id: 'B13', name: '陥没通路', battles: 6, rests: 4, level: 38, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['フィンレーツ', 'ミレメント', 'フレイミー', 'アルブラン'], boss: 'ベルフレム', baseRate: 0.37, rampPerStep: 0.09 },
+    { position: 19, id: 'B12', name: '汚染浄化区画', battles: 6, rests: 4, level: 41, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['ハッパンク', 'リーファム', 'ヒノエナガ', 'バラビィ'], boss: 'シザール', baseRate: 0.38, rampPerStep: 0.09 },
+    { position: 20, id: 'B11', name: '隔壁制御室', battles: 6, rests: 4, level: 44, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['ハナーネ', 'ジェケイダ', 'スイネーク', 'フラビット'], boss: 'アッピオン', baseRate: 0.39, rampPerStep: 0.09 },
+
+    { position: 21, id: 'B10', name: '冷却プラント', battles: 6, rests: 4, level: 47, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['ビョウゲツ', 'ツキネ', 'リュミエット', 'イグニルフ'], boss: 'ユッキング', baseRate: 0.4, rampPerStep: 0.09 },
+    { position: 22, id: 'B9', name: '電力中枢', battles: 6, rests: 4, level: 50, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['ハリースト', 'モスパーク', 'ウィデビット', 'ツルギ'], boss: 'ストロビー', baseRate: 0.41, rampPerStep: 0.09 },
+    { position: 23, id: 'B8', name: 'データバンク', battles: 6, rests: 4, level: 53, wildStatMult: 0.8, bossTier: 'elite',
+      wild: ['シバフールー', 'ロクザール', 'シャコマル', 'ベルフレム'], boss: 'ボルクマ', baseRate: 0.42, rampPerStep: 0.09 },
+    { position: 24, id: 'B7', name: 'サーバー回廊', battles: 6, rests: 4, level: 56, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['レイコーン', 'シカバラス', 'ペパザール', 'シザール'], boss: 'エルシェント', baseRate: 0.43, rampPerStep: 0.09 },
+    { position: 25, id: 'B6', name: '中央制御室', battles: 6, rests: 4, level: 59, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['アカリード', 'ザルディヴァ', 'フィンレーツ', 'アッピオン'], boss: 'グラシオン', baseRate: 0.44, rampPerStep: 0.09 },
+
+    { position: 26, id: 'B5', name: '第一防衛ライン', battles: 7, rests: 5, level: 62, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['フレイミー', 'ウォータル', 'ハッパンク', 'リーファム'], boss: 'リフェロス', baseRate: 0.45, rampPerStep: 0.1 },
+    { position: 27, id: 'B4', name: '対ヴァーモン兵装区画', battles: 7, rests: 5, level: 65, wildStatMult: 0.8, bossTier: 'elite',
+      wild: ['ヒノエナガ', 'コペゾー', 'ハナーネ', 'ユッキング'], boss: 'オベアー', baseRate: 0.46, rampPerStep: 0.1 },
+    { position: 28, id: 'B3', name: '最終検問', battles: 7, rests: 5, level: 68, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['スイネーク', 'フラビット', 'ビョウゲツ', 'ストロビー'], boss: 'エルダーク', baseRate: 0.47, rampPerStep: 0.1 },
+    { position: 29, id: 'B2', name: '地上直結エレベーター', battles: 7, rests: 5, level: 71, wildStatMult: 0.88, bossTier: 'elite',
+      wild: ['リュミエット', 'オヌ・リン', 'ハリースト', 'ボルクマ'], boss: 'マグマス', baseRate: 0.48, rampPerStep: 0.1 },
+
+    // B1: 地上ゲート。雑魚戦なし、ラスボス:ヴァーサスのみの一本勝負。
+    // 種族データ(id999)はHP9999の管理者イースターエッグ用なのでそのまま使わず、
+    // finalBossStats で実際に使う実効ステータスを上書きする（AdventureMode.buildBoss参照）。
+    // finalBossStats/bossMovesはシミュレーターで実測調整済み（自Lv73・4体で自Lv73未満は0%、
+    // 到達直後は僅かに残機ありの辛勝、Lv80/90/100と育てるほど余裕が生まれる曲線）
+    { position: 30, id: 'B1', name: '地上ゲート', battles: 0, rests: 0, level: 71, bossTier: 'final',
+      wild: [], boss: 'ヴァーサス', baseRate: 0, rampPerStep: 0,
+      bossLevel: 80,
+      bossMoves: ['カースドノヴァ', 'ラッシュ', 'プロテクション'],
+      finalBossStats: { hp: 280, atk: 80, def: 80, spd: 110 } }
 ];
 
 // 初期選択（SPEC 4.2）: 6体から2体
@@ -419,17 +462,47 @@ const FLOOR_INTRO = window.FLOOR_INTRO = {
     B23: "失敗作が打ち捨てられた区画。彼らはまだ生きている。",
     B22: "風を切る音。何かがとてつもない速度で通路を横切った。",
     B21: "床が軋む。重装個体のテストに使われていた区画だ。",
-    B20: "ここから上は管理区画。監視の目が、明らかに濃くなる。"
+    B20: "ここから上は管理区画。監視の目が、明らかに濃くなる。",
+
+    B19: "警報が施設全体に響いている。脱走が発覚したのだ。警備が一気に厳しくなる。",
+    B18: "赤色灯の下、武装した個体が整列していた。ただの実験体ではない——実戦部隊だ。",
+    B17: "検問の残骸が転がっている。誰かが、あるいは何かが、ここを強行突破したらしい。",
+    B16: "武器庫の扉が半開きになっている。中の気配は、これまでの階とは明らかに違う。",
+    B15: "壁のあちこちに亀裂が入っている。上の階の崩落が、ここまで及んでいるようだ。",
+    B14: "使われなくなった病棟。誰も彼もが、ここから出られなかったのだろう。",
+    B13: "床が大きく陥没している。落ちれば戻れない、そんな予感がする。",
+    B12: "刺激臭が漂っている。浄化作業が追いついていない証拠だ。",
+    B11: "巨大な隔壁の制御盤が並ぶ。この先を抜ければ、施設の中枢に届く。",
+    B10: "冷気が漂う。巨大な冷却設備が、まだ生きて稼働している。",
+    B9: "低い唸りが足元から伝わってくる。電力の中枢が、すぐそこにある。",
+    B8: "無数のデータ端末が並ぶ。この施設の記録が、すべてここに眠っている。",
+    B7: "サーバーの明滅が、まるで心拍のように通路を照らす。",
+    B6: "施設全体を統べる制御室。ここを抜ければ、もう管理区画ではない。",
+    B5: "重厚な扉の先、最終防衛ラインが待ち構えている。ここからは後がない。",
+    B4: "対ヴァーモン用の兵装がずらりと並ぶ。人類が、本気で牙を剥いてきた区画だ。",
+    B3: "最後の検問。ここを抜ければ、あとは地上へ続くエレベーターだけだ。",
+    B2: "エレベーターの扉が見える。地上まで、あと一つ。",
+    B1: "分厚いゲートの向こう、外の光が僅かに漏れている。地上まで、あと一つの扉。"
 };
 
 const BOSS_INTRO = window.BOSS_INTRO = {
     B30: "通路の先を、一体のヴァーモンが塞いでいる。最初の関門だ。",
-    B20: "分厚い隔壁の前に、管理個体が立っていた。ここを抜ければ、中層だ。"
+    B20: "分厚い隔壁の前に、管理個体が立っていた。ここを抜ければ、中層だ。",
+    B19: "エレベーターが強制停止した。ここから先は、もう逃げも隠れもできない。管理者直属の部隊が待っている。",
+    B15: "崩落の奥から、聞き覚えのある咆哮。B29で退けたはずの個体が、比較にならないほど強化されて立っている。",
+    B10: "中枢へ続く扉の前に、番人が立ちはだかる。施設の心臓部を、生きて通す気はないらしい。",
+    B5: "最終防衛ライン。ここを抜けなければ、地上には届かない。施設が持てる全戦力が、目の前に集結している。",
+    B1: "光が眩しい。ゲートの向こうに、彼が立っていた。\nヴァーサス——この世界のすべてを管理する者。\n最後の戦いが、始まる。"
 };
 
 const FLOOR_CLEAR = window.FLOOR_CLEAR = {
     B30: "隔壁が開いた。地上まで、あと29階。",
-    B20: "中間管理区画を突破した。地上の空気が、かすかに感じられる。"
+    B20: "中間管理区画を突破した。地上の空気が、かすかに感じられる。",
+    B16: "警備強化区画を突破した。だが施設はまだ、あなたを逃す気はないようだ。",
+    B11: "崩壊隔離区画を抜けた。足元の揺れが収まらない。施設そのものが限界に近い。",
+    B6: "コアシステム区画を制圧した。管理区画の中枢は、もう目と鼻の先だ。",
+    B2: "最終防衛ラインを突破した。エレベーターの扉が、静かに開く。地上まで、あと一歩。",
+    B1: "ヴァーサスを退けた。ゲートの向こうに、地上の光が満ちている。"
 };
 
 // 探索テキスト。結果に応じたトーンで「歩いて遭遇した」感を出す

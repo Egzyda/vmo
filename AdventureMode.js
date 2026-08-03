@@ -64,6 +64,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     // ---------- 初期選択（6体から2体） ----------
     const [starterPicks, setStarterPicks] = useState([]);
     const [prologuePage, setProloguePage] = useState(0);
+    const [epiloguePage, setEpiloguePage] = useState(0);
     const toggleStarter = (name) => {
         setStarterPicks(p => p.includes(name) ? p.filter(n => n !== name)
             : (p.length < 2 ? [...p, name] : p));
@@ -135,7 +136,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         inst.equippedMoves = floor.bossMoves && floor.bossMoves.length
             ? floor.bossMoves.filter(m => dbMoves[m])
             : W.getEliteMoves(bd, lvl, dbMoves, run.floorPos);
-        return [W.toBattleMonster(inst, bd, { tier: floor.bossTier || 'boss', fullHeal: true })];
+        return [W.toBattleMonster(inst, bd, {
+            tier: floor.bossTier || 'boss', fullHeal: true,
+            statOverride: floor.finalBossStats || null
+        })];
     };
 
     const myBattleParty = () =>
@@ -353,16 +357,24 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         if (wasBoss) {
             (async () => {
                 const cleared = [...new Set([...s.clearedFloors, run.floorPos])];
+                const isFinalFloor = run.floorPos >= W.FLOORS.length;
+                const firstClear = isFinalFloor && !s.gameCleared;
                 const nextPos = Math.min(W.FLOORS.length, run.floorPos + 1);
                 await persist(healAtBase({
                     ...s,
                     clearedFloors: cleared,
-                    currentFloorPosition: Math.max(s.currentFloorPosition, nextPos)
+                    currentFloorPosition: Math.max(s.currentFloorPosition, nextPos),
+                    gameCleared: s.gameCleared || isFinalFloor
                 }));
                 setRun(null);
                 setBaseTab('home');
-                setView('base');
-                flash(W.FLOOR_CLEAR[floor.id] || `${floor.id} クリア！`);
+                if (firstClear) {
+                    setEpiloguePage(0);
+                    setView('epilogue');
+                } else {
+                    setView('base');
+                    flash(W.FLOOR_CLEAR[floor.id] || `${floor.id} クリア！`);
+                }
             })();
         } else {
             advanceStep();
@@ -441,6 +453,33 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     <div className="flex justify-center gap-1 mt-3">
                         {W.PROLOGUE.map((_, i) => (
                             <span key={i} className={`w-1.5 h-1.5 rounded-full ${i === prologuePage ? 'bg-cyan-400' : 'bg-slate-700'}`}></span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ---- エピローグ（B1クリア初回のみ）----
+    if (view === 'epilogue') {
+        const last = epiloguePage >= W.EPILOGUE.length - 1;
+        return (
+            <div className="app-container relative text-white overflow-hidden"
+                onClick={() => last ? (setBaseTab('home'), setView('base')) : setEpiloguePage(p => p + 1)}>
+                <div className="absolute inset-0">
+                    <img src="./img/assets/base_bg.webp" className="w-full h-full object-cover opacity-30" alt="" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-cyan-950/60 via-slate-950/70 to-slate-950/70"></div>
+                </div>
+                <div className="relative z-10 h-full flex flex-col justify-end p-5 pb-16">
+                    <div className="bg-slate-950/85 border border-cyan-700 rounded p-4 backdrop-blur-sm">
+                        <p className="text-sm leading-relaxed whitespace-pre-line">{W.EPILOGUE[epiloguePage]}</p>
+                        <div className="text-right text-[10px] text-cyan-400 mt-3 animate-pulse">
+                            {last ? '▼ タップして拠点に戻る' : '▼ タップ'}
+                        </div>
+                    </div>
+                    <div className="flex justify-center gap-1 mt-3">
+                        {W.EPILOGUE.map((_, i) => (
+                            <span key={i} className={`w-1.5 h-1.5 rounded-full ${i === epiloguePage ? 'bg-cyan-400' : 'bg-slate-700'}`}></span>
                         ))}
                     </div>
                 </div>
@@ -890,8 +929,13 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
 
                 <div className="relative z-10 flex-none p-3 flex justify-between items-center">
                     <div>
-                        <div className="font-teko text-2xl text-cyan-300 tracking-wider leading-none">BASE</div>
-                        <div className="text-[10px] text-slate-400">アーク B{31 - save.currentFloorPosition}F 付近・安全区画</div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="font-teko text-2xl text-cyan-300 tracking-wider leading-none">BASE</span>
+                            {save.gameCleared && <span className="text-[9px] px-1.5 py-0.5 bg-cyan-700 rounded text-cyan-100">脱出済み</span>}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                            {save.gameCleared ? '地上・安全区画（やり込み要素は準備中）' : `アーク B${31 - save.currentFloorPosition}F 付近・安全区画`}
+                        </div>
                     </div>
                     <div className="text-right">
                         <div className="text-sm text-yellow-300 font-bold">{save.money} 円</div>

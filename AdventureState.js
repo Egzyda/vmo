@@ -54,7 +54,9 @@ const toBattleMonster = window.toBattleMonster = (instance, baseData, opts = {})
     const tier = opts.tier || 'normal';
     // extraMult: フロア固有の追加補正（序盤の弱体個体など）
     const statMult = (window.ENEMY_STAT_MULTIPLIERS[tier] || 1) * (opts.extraMult || 1);
-    const s = getEffectiveStats(instance, baseData);
+    // statOverride: 種族データのステータスを使わず、そのまま最終値として扱う
+    // （ラスボス:ヴァーサスはmonsters.js側がHP9999の管理者イースターエッグ用データのため）
+    const s = opts.statOverride || getEffectiveStats(instance, baseData);
     const hp = Math.floor(s.hp * statMult);
     return {
         ...baseData,
@@ -148,6 +150,7 @@ const createDefaultSave = window.createDefaultSave = () => ({
     currentFloorPosition: 1,
     clearedFloors: [],
     seenIds: [],
+    gameCleared: false,
     version: 1
 });
 
@@ -163,6 +166,7 @@ const normalizeSave = window.normalizeSave = (raw) => {
         currentFloorPosition: typeof raw.currentFloorPosition === 'number' ? raw.currentFloorPosition : d.currentFloorPosition,
         clearedFloors: Array.isArray(raw.clearedFloors) ? raw.clearedFloors : d.clearedFloors,
         seenIds: Array.isArray(raw.seenIds) ? raw.seenIds : d.seenIds,
+        gameCleared: !!raw.gameCleared,
         version: raw.version || d.version
     };
 };
