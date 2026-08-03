@@ -911,7 +911,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             const max = W.getEffectiveStats(m, bd).hp;
                             const pct = Math.max(0, Math.round(m.currentHp / max * 100));
                             return (
-                                <div key={i} className="bg-slate-900/80 rounded border border-slate-700 overflow-hidden">
+                                <button key={i} onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
+                                    className="bg-slate-900/80 rounded border border-slate-700 overflow-hidden text-left active:scale-95 transition">
                                     <div className="w-full aspect-square bg-slate-950">
                                         {bd.img && <img src={bd.img} className={`w-full h-full object-contain ${m.currentHp <= 0 ? 'grayscale opacity-40' : ''}`} />}
                                     </div>
@@ -922,7 +923,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                             <div className={`h-full ${pct < 25 ? 'bg-red-500' : pct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: pct + '%' }} />
                                         </div>
                                     </div>
-                                </div>
+                                </button>
                             );
                         })}
                     </div>
@@ -950,6 +951,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         </button>
                     ))}
                 </div>
+                {detailMon && <window.MonsterDetailModal monster={detailMon} showMoves dbMoves={dbMoves} onClose={() => setDetailMon(null)} />}
                 <Msg />
             </div>
         );
@@ -978,10 +980,11 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             const st = W.getEffectiveStats(m, bd);
                             return (
                                 <div key={i} className="flex items-center gap-2 p-2 mb-1 bg-slate-800 rounded border border-slate-700">
-                                    <div className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none">
+                                    <button onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
+                                        className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none">
                                         {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
+                                    </button>
+                                    <div className="flex-1 min-w-0" onClick={() => setDetailMon(W.toBattleMonster(m, bd))}>
                                         <div className="text-xs font-bold truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
                                         <div className="text-[9px] text-slate-400">HP{m.currentHp}/{st.hp} A{st.atk} D{st.def} S{st.spd}</div>
                                     </div>
@@ -1072,6 +1075,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     ホームに戻る
                 </button>
             </div>
+            {detailMon && <window.MonsterDetailModal monster={detailMon} showMoves dbMoves={dbMoves} onClose={() => setDetailMon(null)} />}
             <Msg />
         </div>
     );
