@@ -36,6 +36,16 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         await W.saveAdventureSave(next);
     };
 
+    // 拠点に戻ったら全回復（ジャンルの慣例。回復薬を買わないと再挑戦できないのは苦行）
+    const healAtBase = (s) => ({
+        ...s,
+        party: s.party.map(m => {
+            const bd = baseOf(m.id);
+            if (!bd) return m;
+            return { ...m, currentHp: W.getEffectiveStats(m, bd).hp, pendingStatus: null, pendingDebuff: null };
+        })
+    });
+
     const flash = (text) => { setMsg(text); setTimeout(() => setMsg(''), 2600); };
 
     // ---------- 初期選択（6体から2体） ----------
@@ -88,20 +98,23 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             const inst = { id: bd.id, level: lvl, exp: 0, knownMoves: [], equippedMoves: [] };
             inst.equippedMoves = (tier === 'normal')
                 ? W.getWildMoveSet(bd, run.floorPos, dbMoves)
-                : W.getEliteMoves(bd, lvl, dbMoves);
-            return W.toBattleMonster(inst, bd, { tier, fullHeal: true });
+                : W.getEliteMoves(bd, lvl, dbMoves, run.floorPos);
+            // 序盤フロアの野生は弱体個体（floor.wildStatMult）
+            const extra = (tier === 'normal' && floor.wildStatMult) ? floor.wildStatMult : 1;
+            return W.toBattleMonster(inst, bd, { tier, fullHeal: true, extraMult: extra });
         });
     };
 
     const buildBoss = () => {
         const bd = dbMonsters.find(m => m.name === floor.boss);
         if (!bd) return [];
-        const lvl = floor.bossLevel || (floor.level + 2);
+        // 既定は敵レベル+1。+2だと手持ちが揃わない序盤でボス戦だけ突出して難しくなる
+        const lvl = floor.bossLevel || (floor.level + 1);
         const inst = { id: bd.id, level: lvl, exp: 0, knownMoves: [], equippedMoves: [] };
         // floor.bossMoves があれば手動指定を優先（チュートリアルボスの調整用）
         inst.equippedMoves = floor.bossMoves && floor.bossMoves.length
             ? floor.bossMoves.filter(m => dbMoves[m])
-            : W.getEliteMoves(bd, lvl, dbMoves);
+            : W.getEliteMoves(bd, lvl, dbMoves, run.floorPos);
         return [W.toBattleMonster(inst, bd, { tier: floor.bossTier || 'boss', fullHeal: true })];
     };
 
@@ -229,12 +242,12 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             else finishBattleStep(next);
         } else {
             // 全滅: 拠点へ強制送還。進捗・所持品は保持（SPEC方針）
-            await persist(next);
+            await persist(healAtBase(next));
             setRun(null);
             setBattle(null);
             setBaseTab('home');
             setView('base');
-            flash('全滅した… 拠点に戻された');
+            flash('全滅した… 拠点に戻され、手当てを受けた（HP全回復）');
         }
     };
 
@@ -283,11 +296,11 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             (async () => {
                 const cleared = [...new Set([...s.clearedFloors, run.floorPos])];
                 const nextPos = Math.min(W.FLOORS.length, run.floorPos + 1);
-                await persist({
+                await persist(healAtBase({
                     ...s,
                     clearedFloors: cleared,
                     currentFloorPosition: Math.max(s.currentFloorPosition, nextPos)
-                });
+                }));
                 setRun(null);
                 setBaseTab('home');
                 setView('base');
@@ -303,7 +316,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const resolveLearn = async (moveName) => {
         const head = learnQueue[0];
         const inst = save.party[head.partyIndex];
-        const updated = W.learnMove(inst, moveName);
+        const updated = W.learnMove(inst, moveName, dbMoves);
         const next = { ...save, party: save.party.map((m, i) => i === head.partyIndex ? updated : m) };
         await persist(next);
         const remaining = head.count - 1;
@@ -513,7 +526,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             <div className="app-container p-3 text-white relative overflow-y-auto">
                 <div className="flex justify-between items-baseline">
                     <h2 className="font-teko text-2xl text-cyan-300 tracking-wider">{floor.id} {floor.name}</h2>
-                    <button onClick={() => { setRun(null); setView('base'); }} className="text-[10px] text-slate-500">撤退</button>
+                    <button onClick={async () => { await persist(healAtBase(save)); setRun(null); setBaseTab('home'); setView('base'); }} className="text-[10px] text-slate-500">撤退</button>
                 </div>
                 <div className="text-[11px] text-slate-400 mb-2">
                     進行 {Math.min(run.step, floor.battles)}/{floor.battles} ・ 休憩 {run.restsLeft}/{floor.rests} ・ 2体遭遇率 {dblRate}%
