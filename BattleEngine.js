@@ -671,7 +671,7 @@ const BattleEngine = ({
     if (!myState || !enemyState) return <div className="h-full flex items-center justify-center text-white">LOADING...</div>;
 
     return (
-        <div className="app-container pb-6">
+        <div className="app-container safe-bottom">
             {/* BATTLE BACKGROUND */}
             <div className="absolute inset-0 z-0 pointer-events-none">
                 <img src="./img/battle_bg.png" className="w-full h-full object-cover opacity-60" alt="" />

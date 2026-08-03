@@ -37,6 +37,14 @@ html, body {
     overflow: hidden;
 }
 
+/* スマホの下端はホームインジケータやブラウザUIと干渉して押しづらいので、
+   画面最下部に貼り付くボタン列には必ずこの余白を確保する */
+/* TailwindのユーティリティCDNは index.css より後に注入されるため、
+   p-3 等に負けないよう !important で上書きする */
+.safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px) !important;
+}
+
 .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
 .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
 .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }

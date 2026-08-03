@@ -11,6 +11,9 @@ const App = () => {
     const [myParty, setMyParty] = useState([]);
     const [enemyParty, setEnemyParty] = useState([]);
     const [showTutorial, setShowTutorial] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [resetConfirm, setResetConfirm] = useState(false);
+    const [resetMsg, setResetMsg] = useState('');
 
     const [showDifficultySelect, setShowDifficultySelect] = useState(false);
     const [difficulty, setDifficulty] = useState('normal');
@@ -323,6 +326,60 @@ const App = () => {
     return (
         <div className="app-container">
             <div className="absolute inset-0 scanline z-50 pointer-events-none"></div>
+
+            {showSettings && (
+                <Modal title="SETTINGS" onClose={() => { setShowSettings(false); setResetMsg(''); }}>
+                    <div className="space-y-4 font-zen pr-2">
+                        <div className="border-l-4 border-slate-500 pl-3">
+                            <h4 className="font-bold text-slate-300 text-lg mb-1 font-teko tracking-wider">DATA</h4>
+                            <p className="text-xs text-slate-400 mb-3">
+                                アドベンチャーモードの進行データ（手持ち・レベル・所持金・攻略状況・図鑑）を削除して、最初からやり直します。<br />
+                                <span className="text-slate-500">対戦モードのチーム編成は消えません。</span>
+                            </p>
+
+                            {resetMsg ? (
+                                <div className="text-xs text-cyan-300 bg-cyan-950/40 border border-cyan-700 rounded px-3 py-2">{resetMsg}</div>
+                            ) : !resetConfirm ? (
+                                <button onClick={() => setResetConfirm(true)}
+                                    className="w-full py-2 rounded bg-red-900/60 border border-red-600 text-red-200 text-sm font-bold hover:bg-red-800/60">
+                                    アドベンチャーのデータを削除
+                                </button>
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="text-xs text-red-300 bg-red-950/50 border border-red-700 rounded px-3 py-2">
+                                        本当に削除しますか？ この操作は取り消せません。
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button onClick={() => setResetConfirm(false)}
+                                            className="py-2 rounded bg-slate-700 text-slate-200 text-sm font-bold">キャンセル</button>
+                                        <button onClick={async () => {
+                                            const r = await window.deleteAdventureSave();
+                                            setResetConfirm(false);
+                                            setResetMsg(r.ok
+                                                ? '削除しました。ADVENTURE MODE を開くと最初から始まります。'
+                                                : '端末のデータは削除しましたが、クラウド側の初期化に失敗しました。通信状態を確認してもう一度お試しください。');
+                                        }}
+                                            className="py-2 rounded bg-red-700 text-white text-sm font-bold">削除する</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="border-l-4 border-slate-700 pl-3">
+                            <h4 className="font-bold text-slate-400 text-sm mb-1 font-teko tracking-wider">BUILD</h4>
+                            <p className="text-[11px] text-slate-500">
+                                VER 4.1.0<br />
+                                最終更新: {buildStamp || '不明'}
+                            </p>
+                            <button onClick={forceUpdate}
+                                className="w-full mt-2 py-2 rounded bg-slate-700 border border-slate-500 text-slate-100 text-sm font-bold hover:bg-slate-600">
+                                ↻ 最新版に更新
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+
             {showTutorial && (
                 <Modal title="SYSTEM GUIDE: ADVANCED" onClose={() => setShowTutorial(false)}>
                     <div className="space-y-6 font-zen pr-2">
@@ -498,11 +555,14 @@ const App = () => {
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 mt-1">
-                                <button onClick={() => setShowTutorial(true)} className="py-2 text-slate-500 text-xs font-teko tracking-[0.15em] hover:text-cyan-400 transition-colors uppercase">
-                                    System Guide
+                            <div className="grid grid-cols-3 gap-2 mt-1">
+                                <button onClick={() => setShowTutorial(true)} className="py-2 text-slate-500 text-xs font-teko tracking-[0.1em] hover:text-cyan-400 transition-colors uppercase">
+                                    Guide
                                 </button>
-                                <button onClick={forceUpdate} className="py-2 text-slate-500 text-xs font-teko tracking-[0.15em] hover:text-amber-400 transition-colors uppercase">
+                                <button onClick={() => { setResetConfirm(false); setShowSettings(true); }} className="py-2 text-slate-500 text-xs font-teko tracking-[0.1em] hover:text-slate-200 transition-colors uppercase">
+                                    ⚙ 設定
+                                </button>
+                                <button onClick={forceUpdate} className="py-2 text-slate-500 text-xs font-teko tracking-[0.1em] hover:text-amber-400 transition-colors uppercase">
                                     ↻ 更新
                                 </button>
                             </div>

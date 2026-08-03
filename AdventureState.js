@@ -210,6 +210,25 @@ const saveAdventureSave = window.saveAdventureSave = async (save) => {
     return data;
 };
 
+// アドベンチャーのセーブを削除して最初からやり直せるようにする。
+// ログイン中は Firestore 側も空データで上書きしないと、次回ログイン時に復活してしまう。
+// 対戦モードのチーム編成（versus_monsters_teams）には触らない。
+const deleteAdventureSave = window.deleteAdventureSave = async () => {
+    try { localStorage.removeItem(ADVENTURE_SAVE_KEY); } catch (e) { /* noop */ }
+
+    const user = window.auth && window.auth.currentUser;
+    if (user && window.db && window.fb) {
+        try {
+            const ref = window.fb.doc(window.db, "users", user.uid, "adventure", "save");
+            await window.fb.setDoc(ref, createDefaultSave());
+        } catch (e) {
+            console.warn('Firestore reset failed (local copy was removed)', e);
+            return { ok: false, reason: 'firestore' };
+        }
+    }
+    return { ok: true };
+};
+
 // ------------------------------------------------------------
 // 所持品・仲間の操作
 // ------------------------------------------------------------
