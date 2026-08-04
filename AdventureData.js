@@ -385,10 +385,10 @@ const SHOP_ITEMS = window.SHOP_ITEMS = [
     { name: "アドレナリン", price: 250, kind: 'heal', value: 1.00, effect: "HP100%回復" },
     { name: "万能薬", price: 150, kind: 'cure', effect: "状態異常を全回復" },
     { name: "蘇生器", price: 300, kind: 'revive', value: 0.50, effect: "戦闘不能から50%HPで復活" },
-    { name: "同調デバイス Mk-I", price: 500, kind: 'capture', effect: "捕獲率×1.3" },
-    { name: "同調デバイス Mk-II", price: 1200, kind: 'capture', effect: "捕獲率×1.8" },
-    { name: "同調デバイス Mk-III", price: 2500, kind: 'capture', effect: "捕獲率×2.4" },
-    { name: "同調デバイス Mk-IV", price: 5000, kind: 'capture', effect: "捕獲率×3.0" },
+    { name: "同調デバイス Mk-I", price: 500, kind: 'capture', effect: "捕獲率+10%" },
+    { name: "同調デバイス Mk-II", price: 1200, kind: 'capture', effect: "捕獲率+20%" },
+    { name: "同調デバイス Mk-III", price: 2500, kind: 'capture', effect: "捕獲率+35%" },
+    { name: "同調デバイス Mk-IV", price: 5000, kind: 'capture', effect: "捕獲率+55%" },
     { name: "同調デバイス Mk-V", price: 15000, kind: 'capture', effect: "捕獲率100%（確定）" }
 ];
 
