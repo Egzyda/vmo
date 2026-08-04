@@ -25,6 +25,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [pendingLearn, setPendingLearn] = useState(null); // 装備満杯時の入れ替え選択中の技名
     const [retreatConfirm, setRetreatConfirm] = useState(false); // 撤退確認モーダル
     const [capturing, setCapturing] = useState(false); // 捕獲演出中フラグ
+    const [itemTarget, setItemTarget] = useState(null); // 道具の使用対象選択中のアイテム名
     const logEndRef = useRef(null);
 
     const baseOf = (id) => dbMonsters.find(m => m.id === id);
@@ -264,10 +265,22 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     };
 
     // 道具の使用。拠点でも探索中でも同じ処理を使う
-    const useItem = async (name) => {
+    // アイテムを使える対象かどうか（種類ごとに対象条件が異なる）
+    const isItemEligible = (def, m, bd) => {
+        if (!bd) return false;
+        if (def.kind === 'heal') return m.currentHp > 0 && m.currentHp < W.getEffectiveStats(m, bd).hp;
+        if (def.kind === 'revive') return m.currentHp <= 0;
+        if (def.kind === 'cure') return !!m.pendingStatus;
+        return false;
+    };
+
+    // 道具は必ず対象を1体選んで使う（薬草等が全員に効いてしまわないように）
+    const useItem = async (name, targetIndex) => {
         const def = W.SHOP_ITEMS.find(i => i.name === name) || {};
         let next = W.consumeItem(save, name);
-        next.party = next.party.map(m => {
+        const targetBd = baseOf(save.party[targetIndex]?.id);
+        next.party = next.party.map((m, i) => {
+            if (i !== targetIndex) return m;
             const bd = baseOf(m.id); if (!bd) return m;
             const max = W.getEffectiveStats(m, bd).hp;
             if (def.kind === 'heal' && m.currentHp > 0) return { ...m, currentHp: Math.min(max, m.currentHp + Math.floor(max * def.value)) };
@@ -276,7 +289,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             return m;
         });
         await persist(next);
-        if (run) addLog(`${name} を使った`, 'good'); else flash(`${name} を使った`);
+        setItemTarget(null);
+        const tname = targetBd ? targetBd.name : '';
+        if (run) addLog(`${tname}に${name}を使った`, 'good'); else flash(`${tname}に${name}を使った`);
     };
 
     // 装備技のON/OFF。拠点・探索中の両方から呼ぶ
@@ -498,6 +513,49 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     <div className={`font-bold text-lg mb-2 ${style.text}`}>{event.title}</div>
                     <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">{event.desc}</p>
                     <div className="mt-4 text-[10px] text-slate-400 animate-pulse">▼ タップして{event.onConfirm ? '戦闘開始' : '続ける'}</div>
+                </div>
+            </div>
+        );
+    };
+
+    // 回復薬などの道具は必ず対象を1体選ばせる（全員に効くのは薬草にしては強すぎる）
+    const ItemTargetPicker = () => {
+        if (!itemTarget) return null;
+        const def = W.SHOP_ITEMS.find(i => i.name === itemTarget) || {};
+        const eligible = save.party
+            .map((m, i) => ({ m, i, bd: baseOf(m.id) }))
+            .filter(({ m, bd }) => isItemEligible(def, m, bd));
+        const emptyMsg = def.kind === 'heal' ? '全員HPが満タン'
+            : def.kind === 'revive' ? '戦闘不能のヴァーモンがいない'
+                : '状態異常のヴァーモンがいない';
+        return (
+            <div className="absolute inset-0 z-[160] bg-black/80 flex flex-col justify-end" onClick={() => setItemTarget(null)}>
+                <div className="bg-slate-900 border-t border-slate-600 rounded-t-lg max-h-[70%] flex flex-col safe-bottom"
+                    onClick={e => e.stopPropagation()}>
+                    <div className="flex-none flex justify-between items-center p-3 border-b border-slate-800">
+                        <span className="font-teko text-lg tracking-wider text-cyan-300">{itemTarget} を誰に使う？</span>
+                        <button onClick={() => setItemTarget(null)} className="text-[11px] text-slate-400">閉じる</button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3">
+                        {eligible.length === 0
+                            ? <div className="text-xs text-slate-500">{emptyMsg}</div>
+                            : eligible.map(({ m, i, bd }) => {
+                                const max = W.getEffectiveStats(m, bd).hp;
+                                const pct = Math.max(0, Math.round(m.currentHp / max * 100));
+                                return (
+                                    <button key={i} onClick={() => useItem(itemTarget, i)}
+                                        className="w-full flex items-center gap-2 p-2 mb-1 rounded bg-slate-800 border border-slate-700 hover:border-cyan-400 text-left">
+                                        <div className="w-9 h-9 bg-slate-900 rounded overflow-hidden flex-none">
+                                            {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
+                                            <div className="text-[9px] text-slate-400">HP{m.currentHp}/{max}（{pct}%）{m.pendingStatus ? ' ・ 状態異常' : ''}</div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                    </div>
                 </div>
             </div>
         );
@@ -869,7 +927,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                                     <div className="text-[9px] text-slate-400">{def.effect || ''}</div>
                                                 </div>
                                                 {usable
-                                                    ? <button onClick={() => useItem(name)} className="text-[10px] px-3 py-1.5 bg-green-700 rounded flex-none">使う</button>
+                                                    ? <button onClick={() => setItemTarget(name)} className="text-[10px] px-3 py-1.5 bg-green-700 rounded flex-none">使う</button>
                                                     : <span className="text-[9px] text-slate-500 flex-none">戦闘/捕獲用</span>}
                                             </div>
                                         );
@@ -957,6 +1015,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     </div>
                 )}
                 <EventModal />
+                <ItemTargetPicker />
                 <Msg />
             </div>
         );
@@ -1239,7 +1298,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                         <div className="text-[9px] text-slate-400">{def.effect || ''}</div>
                                     </div>
                                     {usable && (
-                                        <button onClick={() => useItem(name)}
+                                        <button onClick={() => setItemTarget(name)}
                                             className="text-[9px] px-2 py-1 bg-green-700 rounded flex-none">使う</button>
                                     )}
                                 </div>
@@ -1255,6 +1314,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 </button>
             </div>
             {detailMon && <window.MonsterDetailModal monster={detailMon} showMoves dbMoves={dbMoves} onClose={() => setDetailMon(null)} />}
+            <ItemTargetPicker />
             <Msg />
         </div>
     );
