@@ -226,6 +226,64 @@ const ENEMY_STAT_MULTIPLIERS = window.ENEMY_STAT_MULTIPLIERS = {
 };
 
 // ============================================================
+// 4b. 改造研究員（SPEC 4.16）
+// ============================================================
+// 個性は設けないが、雑魚研究員（野生と同格の1〜2体）とエリート研究員（4体の
+// アーキタイプ編成）の2段階を用意する。テンプレートは既存のPvP用チーム
+// （app.js の ELITE_TEAMS/MASTER_TEAMS）と同じ思想で、明確なコンセプトを持たせる。
+const RESEARCHER_TEAMS = window.RESEARCHER_TEAMS = [
+    {
+        name: 'ディストーション速攻',
+        members: [
+            { id: 10, moves: ['ダークインパクト', 'ディストーション', 'プロテクション'] },
+            { id: 32, moves: ['ダークインパクト', 'ダークファング', 'プロテクション'] },
+            { id: 11, moves: ['フレイムバースト', 'マグマブロック', 'プロテクション'] },
+            { id: 17, moves: ['ホーリーレイ', 'ボルトクロー', 'プロテクション'] }
+        ]
+    },
+    {
+        name: '全体バフ特化',
+        members: [
+            { id: 9, moves: ['ダークインパクト', 'カースドノヴァ', 'パワーチャージ'] },
+            { id: 7, moves: ['ホーリーレイ', '光速の爪', 'パワーチャージ'] },
+            { id: 25, moves: ['フレイムバースト', 'ロックパンチ', 'パワーチャージ'] },
+            { id: 49, moves: ['ホーリーレイ', 'ハーフカット', 'パワーチャージ'] }
+        ]
+    },
+    {
+        name: 'デバフ+削り',
+        members: [
+            { id: 3, moves: ['アクアストリーム', 'インティミデイト', 'プロテクション'] },
+            { id: 20, moves: ['ダークインパクト', 'ドレインホーン', 'アイアンシェル'] },
+            { id: 4, moves: ['アクアストリーム', 'アシッドボム', 'ドレインバイト'] },
+            { id: 26, moves: ['アクアストリーム', 'インティミデイト', 'アクアブロック'] }
+        ]
+    },
+    {
+        name: 'プロテクション粘り',
+        members: [
+            { id: 14, moves: ['アクアストリーム', 'ヒールライト', 'プロテクション'] },
+            { id: 22, moves: ['ソーンウィップ', 'ヒールライト', 'プロテクション'] },
+            { id: 48, moves: ['ソーンウィップ', 'グラスヒール', 'プロテクション'] },
+            { id: 8, moves: ['ホーリーレイ', 'ヒールライト', 'プロテクション'] }
+        ]
+    }
+];
+
+// 「エリート」を引いた際、強化された野生個体／雑魚研究員／エリート研究員の
+// どれになるかをフロアの深さで振り分ける。深く潜るほどエリート研究員の比率が上がる
+// （SPEC 4.10「深い階層に進むほどエリート研究員の出現比率が上がる」）。
+const getEliteEncounterKind = window.getEliteEncounterKind = (floorPosition, rng = Math.random) => {
+    const p = floorPosition || 1;
+    let weights;
+    if (p <= 4) weights = { wild: 1, researcher_weak: 0, researcher_elite: 0 };
+    else if (p <= 10) weights = { wild: 0.7, researcher_weak: 0.3, researcher_elite: 0 };
+    else if (p <= 19) weights = { wild: 0.4, researcher_weak: 0.35, researcher_elite: 0.25 };
+    else weights = { wild: 0.2, researcher_weak: 0.2, researcher_elite: 0.6 };
+    return rollWeighted(weights, rng);
+};
+
+// ============================================================
 // 5. 探索ノード（SPEC 4.8）
 // ============================================================
 // 各選択肢の抽選テーブル。合計は必ず 1.0
@@ -260,9 +318,21 @@ const rollWeighted = window.rollWeighted = (weights, rng = Math.random) => {
     return entries.length ? entries[entries.length - 1][0] : null;
 };
 
-const rollNodeOutcome = window.rollNodeOutcome = (choiceId, rng = Math.random) => {
+// 「安全に進む」だけはフロア位置に応じてわずかにエリート率が乗る（SPEC 4.8）。
+// 序盤（B30〜B23相当）は完全に安全（0%）。以降じわじわ上がり、5%で頭打ち。
+const getSafeEliteChance = window.getSafeEliteChance = (floorPosition) => {
+    const p = floorPosition || 1;
+    if (p <= 8) return 0;
+    return Math.min(0.05, (p - 8) * 0.005);
+};
+
+const rollNodeOutcome = window.rollNodeOutcome = (choiceId, floorPosition, rng = Math.random) => {
     const choice = NODE_CHOICES[choiceId];
     if (!choice) throw new Error(`Unknown node choice: ${choiceId}`);
+    if (choiceId === 'safe') {
+        const eliteChance = getSafeEliteChance(floorPosition);
+        return rollWeighted({ ...choice.outcomes, elite: eliteChance, normal: choice.outcomes.normal - eliteChance }, rng);
+    }
     return rollWeighted(choice.outcomes, rng);
 };
 
