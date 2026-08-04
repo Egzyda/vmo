@@ -141,19 +141,27 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     };
 
     const buildBoss = () => {
+        // 研究員ボス（SPEC 4.16の応用）: フロアボスの代わりにエリート研究員編成を戦わせる
+        if (floor.bossKind === 'researcher') return buildResearcher('researcher_elite');
+
         const bd = dbMonsters.find(m => m.name === floor.boss);
         if (!bd) return [];
         // 既定は敵レベル+1。+2だと手持ちが揃わない序盤でボス戦だけ突出して難しくなる
         const lvl = floor.bossLevel || (floor.level + 1);
-        const inst = { id: bd.id, level: lvl, exp: 0, knownMoves: [], equippedMoves: [] };
-        // floor.bossMoves があれば手動指定を優先（チュートリアルボスの調整用）
-        inst.equippedMoves = floor.bossMoves && floor.bossMoves.length
-            ? floor.bossMoves.filter(m => dbMoves[m])
-            : W.getEliteMoves(bd, lvl, dbMoves, run.floorPos);
-        return [W.toBattleMonster(inst, bd, {
-            tier: floor.bossTier || 'boss', fullHeal: true,
-            statOverride: floor.finalBossStats || null
-        })];
+        const buildOne = () => {
+            const inst = { id: bd.id, level: lvl, exp: 0, knownMoves: [], equippedMoves: [] };
+            // floor.bossMoves があれば手動指定を優先（チュートリアルボスの調整用）
+            inst.equippedMoves = floor.bossMoves && floor.bossMoves.length
+                ? floor.bossMoves.filter(m => dbMoves[m])
+                : W.getEliteMoves(bd, lvl, dbMoves, run.floorPos);
+            // ボス単体を歪に強くしない方針（SPEC 4.10）のため、二体ボスは
+            // 各個体の補正をnormal(1.0倍)まで下げ、同時2体という戦術的な難しさで強さを出す
+            return W.toBattleMonster(inst, bd, {
+                tier: floor.bossDuo ? 'normal' : (floor.bossTier || 'boss'), fullHeal: true,
+                statOverride: floor.finalBossStats || null
+            });
+        };
+        return floor.bossDuo ? [buildOne(), buildOne()] : [buildOne()];
     };
 
     // 改造研究員（SPEC 4.16）。雑魚研究員は野生と同格の1〜2体、
@@ -893,7 +901,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     {isBossNext ? (
                         <button onClick={() => enterBattle('boss')}
                             className="w-full py-5 rounded bg-red-900/70 border-2 border-red-500 font-teko text-2xl tracking-widest">
-                            BOSS: {floor.boss}
+                            BOSS: {floor.bossKind === 'researcher' ? 'エリート研究員 編成部隊' : floor.bossDuo ? `${floor.boss} ×2` : floor.boss}
                         </button>
                     ) : (
                         <div className="space-y-1.5">
@@ -1088,7 +1096,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                                     </span>
                                                 );
                                             })}
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-700 text-red-300">BOSS {f.boss}</span>
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-700 text-red-300">
+                                                BOSS {f.bossKind === 'researcher' ? 'エリート研究員 編成部隊' : f.bossDuo ? `${f.boss} ×2` : f.boss}
+                                            </span>
                                         </div>
                                     </div>
                                 ) : (

@@ -473,14 +473,17 @@ const FLOORS = window.FLOORS = [
     { position: 25, id: 'B6', name: '中央制御室', battles: 6, rests: 4, level: 59, wildStatMult: 0.88, bossTier: 'elite',
       wild: ['アカリード', 'ザルディヴァ', 'フィンレーツ', 'アッピオン'], boss: 'グラシオン', baseRate: 0.44, rampPerStep: 0.09 },
 
+    // 二体ボス（同種×2、各個体はnormal補正=1.0倍）。ボス単体を歪に強くしない方針のまま、
+    // 同時2体を相手取る戦術的な難しさで終盤の強さを出す（SPEC 4.10参照）
     { position: 26, id: 'B5', name: '第一防衛ライン', battles: 7, rests: 5, level: 62, wildStatMult: 0.88, bossTier: 'elite',
-      wild: ['フレイミー', 'ウォータル', 'ハッパンク', 'リーファム'], boss: 'リフェロス', baseRate: 0.45, rampPerStep: 0.1 },
+      wild: ['フレイミー', 'ウォータル', 'ハッパンク', 'リーファム'], boss: 'リフェロス', bossDuo: true, baseRate: 0.45, rampPerStep: 0.1 },
     { position: 27, id: 'B4', name: '対ヴァーモン兵装区画', battles: 7, rests: 5, level: 65, wildStatMult: 0.8, bossTier: 'elite',
       wild: ['ヒノエナガ', 'コペゾー', 'ハナーネ', 'ユッキング'], boss: 'オベアー', baseRate: 0.46, rampPerStep: 0.1 },
+    // 研究員ボス: フロアボスの代わりにエリート研究員編成（RESEARCHER_TEAMS）と戦う
     { position: 28, id: 'B3', name: '最終検問', battles: 7, rests: 5, level: 68, wildStatMult: 0.88, bossTier: 'elite',
-      wild: ['スイネーク', 'フラビット', 'ビョウゲツ', 'ストロビー'], boss: 'エルダーク', baseRate: 0.47, rampPerStep: 0.1 },
+      wild: ['スイネーク', 'フラビット', 'ビョウゲツ', 'ストロビー'], boss: 'エルダーク', bossKind: 'researcher', baseRate: 0.47, rampPerStep: 0.1 },
     { position: 29, id: 'B2', name: '地上直結エレベーター', battles: 7, rests: 5, level: 71, wildStatMult: 0.88, bossTier: 'elite',
-      wild: ['リュミエット', 'オヌ・リン', 'ハリースト', 'ボルクマ'], boss: 'マグマス', baseRate: 0.48, rampPerStep: 0.1 },
+      wild: ['リュミエット', 'オヌ・リン', 'ハリースト', 'ボルクマ'], boss: 'マグマス', bossDuo: true, baseRate: 0.48, rampPerStep: 0.1 },
 
     // B1: 地上ゲート。雑魚戦なし、ラスボス:ヴァーサスのみの一本勝負。
     // 種族データ(id999)はHP9999の管理者イースターエッグ用なのでそのまま使わず、
@@ -563,6 +566,8 @@ const BOSS_INTRO = window.BOSS_INTRO = {
     B15: "崩落の奥から、聞き覚えのある咆哮。B29で退けたはずの個体が、比較にならないほど強化されて立っている。",
     B10: "中枢へ続く扉の前に、番人が立ちはだかる。施設の心臓部を、生きて通す気はないらしい。",
     B5: "最終防衛ライン。ここを抜けなければ、地上には届かない。施設が持てる全戦力が、目の前に集結している。",
+    B3: "最後の検問に立っていたのは、ヴァーモンではなかった。エリート研究員の編成部隊——万全の連携で待ち構えている。",
+    B2: "エレベーターの前に、二体のマグマスが立ちはだかる。地上へ続く最後の関門は、一体では終わらせてくれないらしい。",
     B1: "光が眩しい。ゲートの向こうに、彼が立っていた。\nヴァーサス——この世界のすべてを管理する者。\n最後の戦いが、始まる。"
 };
 
