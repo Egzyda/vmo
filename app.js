@@ -28,6 +28,16 @@ const App = () => {
         window.scrollTo(0, 0);
     }, [view]);
 
+    // 全モンスター画像＋主要背景画像をタイトル表示中にバックグラウンドで先読みしておく。
+    // 通信環境次第でバトル/アドベンチャー中に画像取得が間に合わず表示が抜けることがあるため
+    useEffect(() => {
+        const urls = [
+            ...new Set((dbMonsters || []).map(m => m.img).filter(Boolean)),
+            './img/assets/base_bg.webp', './img/battle_bg.png', './img/menu_bg.png'
+        ];
+        urls.forEach(src => { const img = new Image(); img.src = src; });
+    }, []);
+
     const [debugTapCount, setDebugTapCount] = useState(0);
 
     const createMonsterInstance = (id) => { const data = dbMonsters.find(m => m.id == id); if (!data) return null; return { ...data, uid: Math.random().toString(36).substr(2, 9), maxHp: data.hp, currentHp: data.hp, buffs: { atk: 0, def: 0, spd: 0 }, selectedMoves: data.moves.slice(0, 3), isDamaged: false, isProtected: false, protectStreak: 0, lastTakenDamage: 0, lastTakenDamageSource: null }; };
