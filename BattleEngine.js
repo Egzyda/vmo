@@ -236,7 +236,7 @@ const BattleEngine = ({
 
             const moveData = dbMoves[action.moveName];
             if (!moveData) continue;
-            addLog(`${sidePrefix}${actor.name}の${action.moveName}!`, 'move'); await wait(1500);
+            addLog(`${sidePrefix}${actor.name}の${action.moveName}!`, 'move'); await wait(300);
 
             if (moveData.effect === 'protect') {
                 let chance = 100; if (actor.protectStreak > 0) chance = 30;
@@ -521,7 +521,10 @@ const BattleEngine = ({
             }
 
             setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
-            setTimeout(() => { const clearShake = (s) => s.forEach(m => { m.isDamaged = false; m.fx = null; }); clearShake(myStateRef.current); clearShake(enemyStateRef.current); setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]); }, 500);
+            await wait(500);
+            const clearShake = (s) => s.forEach(m => { m.isDamaged = false; m.fx = null; });
+            clearShake(myStateRef.current); clearShake(enemyStateRef.current);
+            setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
         }
 
         if(isOnline) {
