@@ -299,22 +299,23 @@ function getCaptureRate(tier, targetLevel, deviceName = null) {
 ```javascript
 // 通貨: 円（乱数幅あり）
 function getDropMoney(enemyLevel) {
-  const base = 50 + enemyLevel * 10;
+  const base = 75 + enemyLevel * 12;
   const variance = Math.floor(base * 0.2); // ±20%
   return base + Math.floor(Math.random() * variance * 2) - variance;
 }
 
 const SHOP_ITEMS = [
-  { name: "薬草",         price: 50,   effect: "HP30%回復" },
-  { name: "回復薬",       price: 100,  effect: "HP50%回復" },
-  { name: "アドレナリン", price: 250,  effect: "HP100%回復" },
+  { name: "薬草",         price: 50,   effect: "HP30%回復" },       // 1.67円/%
+  { name: "回復薬",       price: 80,   effect: "HP50%回復" },       // 1.60円/%
+  { name: "アドレナリン", price: 120,  effect: "HP100%回復" },      // 1.20円/%（上位ほど円/%が下がる＝薬草だけで済ませない設計）
   { name: "万能薬",       price: 150,  effect: "状態異常を全回復" },
   { name: "蘇生器",       price: 300,  effect: "戦闘不能から50%HPで復活" },
-  { name: "同調デバイス Mk-I",   price: 500,   effect: "捕獲率+10%" },
-  { name: "同調デバイス Mk-II",  price: 1200,  effect: "捕獲率+20%" },
-  { name: "同調デバイス Mk-III", price: 2500,  effect: "捕獲率+35%" },
-  { name: "同調デバイス Mk-IV",  price: 5000,  effect: "捕獲率+55%" },
-  { name: "同調デバイス Mk-V",   price: 15000, effect: "捕獲率100%（確定）" }
+  { name: "回復スプレー", price: 260,  effect: "パーティ全員HP50%回復（対象選択なしで即使用）" },
+  { name: "同調デバイス Mk-I",   price: 380,   effect: "捕獲率+10%" },
+  { name: "同調デバイス Mk-II",  price: 850,   effect: "捕獲率+20%" },
+  { name: "同調デバイス Mk-III", price: 1700,  effect: "捕獲率+35%" },
+  { name: "同調デバイス Mk-IV",  price: 3400,  effect: "捕獲率+55%" },
+  { name: "同調デバイス Mk-V",   price: 9000,  effect: "捕獲率100%（確定）" }
 ];
 // 価格は暫定値。プレイテストで調整する
 ```
@@ -381,7 +382,7 @@ const SHOP_ITEMS = [
 
 ### 4.10 敵編成・2体エンカウント率
 
-野生ヴァーモンは1体または2体（ダブルバトル、既存の2vs2エンジンをそのまま使用）で出現する。**フロアごとにリセットし、そのフロア内で奥へ進むほど2体の確率が上がる**。さらに深いフロア（B30側）ほど基礎確率が低く、浅いフロア（B1側）に近づくほど開始時点から2体が出やすくなる。
+野生ヴァーモンは1体または2体（ダブルバトル、既存の2vs2エンジンをそのまま使用）で出現する。**フロアごとにリセットし、そのフロア内で奥へ進むほど2体の確率が上がる**。さらに深いフロア（B30側）ほど基礎確率が低く、浅いフロア（B1側）に近づくほど開始時点から2体が出やすくなる。**上限は90%**（終盤でも1体エンカウントの可能性を必ず残す）。
 
 ```javascript
 // フロアごとに { baseRate: 入場時点の2体率, rampPerStep: 1ステップ進むごとの上昇率 } を持つ
