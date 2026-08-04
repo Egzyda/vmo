@@ -23,6 +23,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [detailMon, setDetailMon] = useState(null); // MonsterDetailModal 用
     const [movePartyIndex, setMovePartyIndex] = useState(null); // 技入れ替え対象
     const [pendingLearn, setPendingLearn] = useState(null); // 装備満杯時の入れ替え選択中の技名
+    const [retreatConfirm, setRetreatConfirm] = useState(false); // 撤退確認モーダル
     const logEndRef = useRef(null);
 
     const baseOf = (id) => dbMonsters.find(m => m.id === id);
@@ -266,6 +267,16 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         else { if (cur.length >= 3) return; nextMoves = [...cur, mv]; }
         const updated = W.setEquippedMoves(m, nextMoves);
         await persist({ ...save, party: save.party.map((x, j) => j === partyIndex ? updated : x) });
+    };
+
+    // 手持ちの並び替え。先頭2体がそのまま出撃時の前衛（フィールド）になるため、
+    // 誰を前衛にするかを並び替えで直接コントロールできるようにする
+    const moveParty = async (i, dir) => {
+        const j = i + dir;
+        if (j < 0 || j >= save.party.length) return;
+        const party = [...save.party];
+        [party[i], party[j]] = [party[j], party[i]];
+        await persist({ ...save, party });
     };
 
     const doRest = async () => {
@@ -716,7 +727,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 <div className="flex-none px-3 pt-3">
                     <div className="flex justify-between items-baseline">
                         <h2 className="font-teko text-2xl text-cyan-300 tracking-wider leading-none">{floor.id} {floor.name}</h2>
-                        <button onClick={async () => { await persist(healAtBase(save)); setRun(null); setBaseTab('home'); setView('base'); }} className="text-[10px] text-slate-500">撤退</button>
+                        <button onClick={() => setRetreatConfirm(true)} className="text-[10px] text-slate-500">撤退</button>
                     </div>
                     <div className="text-[10px] text-slate-400 mt-0.5">
                         進行 {Math.min(run.step, floor.battles)}/{floor.battles} ・ 休憩 {run.restsLeft}/{floor.rests} ・ 2体遭遇率 {dblRate}%
@@ -838,19 +849,30 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                 <button onClick={() => { setPanel(null); setMovePartyIndex(null); }} className="text-[11px] text-slate-400">閉じる</button>
                             </div>
                             <div className="flex-1 overflow-y-auto p-3">
+                                <div className="text-[9px] text-slate-500 mb-2">先頭2体が出撃時の前衛になる</div>
                                 {save.party.map((m, i) => {
                                     const bd = baseOf(m.id); if (!bd) return null;
                                     const st = W.getEffectiveStats(m, bd);
                                     const open = movePartyIndex === i;
+                                    const isFront = i < 2;
                                     return (
-                                        <div key={i} className="mb-2 bg-slate-800 rounded border border-slate-700">
+                                        <div key={i} className={`mb-2 rounded border ${isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'}`}>
                                             <div className="flex items-center gap-2 p-2">
+                                                <div className="flex flex-col gap-0.5 flex-none">
+                                                    <button onClick={() => moveParty(i, -1)} disabled={i === 0}
+                                                        className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === 0 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▲</button>
+                                                    <button onClick={() => moveParty(i, 1)} disabled={i === save.party.length - 1}
+                                                        className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === save.party.length - 1 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▼</button>
+                                                </div>
                                                 <button onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
                                                     className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none">
                                                     {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
                                                 </button>
                                                 <div className="flex-1 min-w-0" onClick={() => setDetailMon(W.toBattleMonster(m, bd))}>
-                                                    <div className="text-xs font-bold truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
+                                                    <div className="text-xs font-bold truncate flex items-center gap-1">
+                                                        {bd.name} <span className="text-slate-500">Lv{m.level}</span>
+                                                        {isFront && <span className="text-[8px] px-1 rounded bg-cyan-700 text-cyan-100 flex-none">前衛</span>}
+                                                    </div>
                                                     <div className="text-[9px] text-slate-400">HP{m.currentHp}/{st.hp} A{st.atk} D{st.def} S{st.spd}</div>
                                                 </div>
                                                 <button onClick={() => setMovePartyIndex(open ? null : i)}
@@ -881,6 +903,20 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 )}
 
                 {detailMon && <window.MonsterDetailModal monster={detailMon} showMoves dbMoves={dbMoves} onClose={() => setDetailMon(null)} />}
+                {retreatConfirm && (
+                    <div className="absolute inset-0 z-[150] bg-black/80 flex items-center justify-center p-6" onClick={() => setRetreatConfirm(false)}>
+                        <div className="w-full max-w-[300px] rounded-lg border-2 border-slate-600 bg-slate-900 p-5 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="text-3xl mb-2">🚪</div>
+                            <div className="font-bold text-base text-white mb-1">このフロアから撤退する？</div>
+                            <p className="text-xs text-slate-400 mb-4">拠点に戻り全回復するが、フロアの進行状況（{Math.min(run.step, floor.battles)}/{floor.battles}）は失われる</p>
+                            <div className="flex gap-2">
+                                <button onClick={() => setRetreatConfirm(false)} className="flex-1 py-2.5 rounded bg-slate-700 text-sm font-bold">戻る</button>
+                                <button onClick={async () => { setRetreatConfirm(false); await persist(healAtBase(save)); setRun(null); setBaseTab('home'); setView('base'); }}
+                                    className="flex-1 py-2.5 rounded bg-red-700 text-sm font-bold">撤退する</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <EventModal />
                 <Msg />
             </div>
@@ -978,6 +1014,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     </div>
                 </div>
 
+                {/* 情報（ヘッダ）は上、操作（パーティ・出撃・サブメニュー）は片手で
+                    届く下側にまとめる。空白spacerで押し下げる */}
+                <div className="flex-1"></div>
+
                 {/* パーティ簡易表示。
                     手持ちの数でサイズが変わらないよう常に4枠のグリッドにし、
                     空き枠はプレースホルダで埋める（2体のとき巨大化するのを防ぐ） */}
@@ -998,9 +1038,11 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             }
                             const max = W.getEffectiveStats(m, bd).hp;
                             const pct = Math.max(0, Math.round(m.currentHp / max * 100));
+                            const isFront = i < 2;
                             return (
                                 <button key={i} onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
-                                    className="bg-slate-900/80 rounded border border-slate-700 overflow-hidden text-left active:scale-95 transition">
+                                    className={`relative rounded border overflow-hidden text-left active:scale-95 transition ${isFront ? 'bg-cyan-950/50 border-cyan-600' : 'bg-slate-900/80 border-slate-700'}`}>
+                                    {isFront && <div className="absolute top-0.5 left-0.5 z-10 text-[7px] px-1 rounded bg-cyan-600 text-cyan-50 leading-tight">前衛</div>}
                                     <div className="w-full aspect-square bg-slate-950">
                                         {bd.img && <img src={bd.img} className={`w-full h-full object-contain ${m.currentHp <= 0 ? 'grayscale opacity-40' : ''}`} />}
                                     </div>
@@ -1017,8 +1059,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     </div>
                 </div>
 
-                {/* 中央: 出撃 */}
-                <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+                {/* 出撃（片手操作を意識してパーティ表示のすぐ下、画面下側に配置） */}
+                <div className="relative z-10 flex-none flex flex-col items-center px-6 pt-4">
                     <button onClick={() => setView('floors')}
                         className="w-full py-7 rounded-lg bg-gradient-to-b from-cyan-500 to-cyan-700 border-2 border-cyan-300 shadow-[0_0_30px_rgba(34,211,238,0.4)] active:scale-95 transition">
                         <div className="font-teko text-4xl tracking-widest text-white leading-none">出撃</div>
@@ -1062,18 +1104,28 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             <div className="flex-1 overflow-y-auto p-3">
                 {baseTab === 'party' && (
                     <>
-                        <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）</div>
+                        <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）・先頭2体が出撃時の前衛になる</div>
                         {save.party.map((m, i) => {
                             const bd = baseOf(m.id); if (!bd) return null;
                             const st = W.getEffectiveStats(m, bd);
+                            const isFront = i < 2;
                             return (
-                                <div key={i} className="flex items-center gap-2 p-2 mb-1 bg-slate-800 rounded border border-slate-700">
+                                <div key={i} className={`flex items-center gap-2 p-2 mb-1 rounded border ${isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'}`}>
+                                    <div className="flex flex-col gap-0.5 flex-none">
+                                        <button onClick={() => moveParty(i, -1)} disabled={i === 0}
+                                            className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === 0 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▲</button>
+                                        <button onClick={() => moveParty(i, 1)} disabled={i === save.party.length - 1}
+                                            className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === save.party.length - 1 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▼</button>
+                                    </div>
                                     <button onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
-                                        className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none">
+                                        className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none relative">
                                         {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
                                     </button>
                                     <div className="flex-1 min-w-0" onClick={() => setDetailMon(W.toBattleMonster(m, bd))}>
-                                        <div className="text-xs font-bold truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
+                                        <div className="text-xs font-bold truncate flex items-center gap-1">
+                                            {bd.name} <span className="text-slate-500">Lv{m.level}</span>
+                                            {isFront && <span className="text-[8px] px-1 rounded bg-cyan-700 text-cyan-100 flex-none">前衛</span>}
+                                        </div>
                                         <div className="text-[9px] text-slate-400">HP{m.currentHp}/{st.hp} A{st.atk} D{st.def} S{st.spd}</div>
                                     </div>
                                     {save.box.length > 0 && (

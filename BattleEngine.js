@@ -236,12 +236,15 @@ const BattleEngine = ({
 
             const moveData = dbMoves[action.moveName];
             if (!moveData) continue;
+            actor.isAttackingNow = true;
+            setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
             addLog(`${sidePrefix}${actor.name}の${action.moveName}!`, 'move'); await wait(300);
 
             if (moveData.effect === 'protect') {
                 let chance = 100; if (actor.protectStreak > 0) chance = 30;
                 if (rngFunc() * 100 < chance) { actor.isProtected = true; actor.protectStreak = (actor.protectStreak || 0) + 1; addLog(`${actor.name}は守りの体勢に入った！`); }
                 else { addLog("しかし うまく決まらなかった！"); actor.protectStreak = 0; }
+                actor.isAttackingNow = false;
                 if(action.side === 'player') setMyState([...myStateRef.current]); else setEnemyState([...enemyStateRef.current]); continue;
             } else { actor.protectStreak = 0; }
 
@@ -263,9 +266,16 @@ const BattleEngine = ({
                 } else {
                     addLog("しかし うまく決まらなかった！");
                 }
+                actor.isAttackingNow = false;
+                setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
                 continue;
             }
-            if (moveData.effect === 'trick_room') { if (distortion) { addLog("しかし 技は失敗した！"); } else { setDistortion(true); setDistortionTurns(5); addLog(`ディストーション空間が展開された！(5ターン)`); } continue; }
+            if (moveData.effect === 'trick_room') {
+                if (distortion) { addLog("しかし 技は失敗した！"); } else { setDistortion(true); setDistortionTurns(5); addLog(`ディストーション空間が展開された！(5ターン)`); }
+                actor.isAttackingNow = false;
+                setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
+                continue;
+            }
 
             let targets = [];
             const targetSideState = action.side === 'player' ? enemyStateRef.current : myStateRef.current;
@@ -522,7 +532,7 @@ const BattleEngine = ({
 
             setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
             await wait(500);
-            const clearShake = (s) => s.forEach(m => { m.isDamaged = false; m.fx = null; });
+            const clearShake = (s) => s.forEach(m => { m.isDamaged = false; m.fx = null; m.isAttackingNow = false; });
             clearShake(myStateRef.current); clearShake(enemyStateRef.current);
             setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
         }
@@ -741,7 +751,7 @@ const BattleEngine = ({
                                 }
                                 if (mon) setStatDetail({ monster: mon, isAlly: false });
                             }}>
-                                <MonsterCard monster={mon} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'single' || dbMoves[selectingMove].target === 'enemy' || dbMoves[selectingMove].target === 'any_single') && mon && mon.currentHp > 0} compact={true} />
+                                <MonsterCard monster={mon} isAttacking={!!(mon && mon.isAttackingNow)} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'single' || dbMoves[selectingMove].target === 'enemy' || dbMoves[selectingMove].target === 'any_single') && mon && mon.currentHp > 0} compact={true} />
                             </div>
                         );
                     })}
@@ -808,7 +818,7 @@ const BattleEngine = ({
                                 }
                                 if (mon) setStatDetail({ monster: mon, isAlly: true });
                             }}>
-                                <MonsterCard monster={mon} isActive={isActing} isSelected={isActing} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'ally' || dbMoves[selectingMove].target === 'any_single') && mon && mon.currentHp > 0} />
+                                <MonsterCard monster={mon} isActive={isActing} isAttacking={!!(mon && mon.isAttackingNow)} isSelected={isActing} isTargetable={phase==='command' && selectingMove && dbMoves[selectingMove] && (dbMoves[selectingMove].target === 'ally' || dbMoves[selectingMove].target === 'any_single') && mon && mon.currentHp > 0} />
                                 {isActing && <div className="absolute -top-8 left-0 w-full text-center text-xs text-yellow-400 font-bold animate-bounce z-30">▼ COMMAND</div>}
                             </div>
                         );

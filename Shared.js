@@ -110,7 +110,7 @@ const MonsterFx = window.MonsterFx = ({ fx }) => {
     return null;
 };
 
-const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isSelected, showStatus = true, compact = false }) => {
+const MonsterCard = window.MonsterCard = ({ monster, isActive, isAttacking, isTargetable, isSelected, showStatus = true, compact = false }) => {
     const [imgError, setImgError] = useState(false);
     if (!monster) return <div className={`w-full ${compact ? 'aspect-square' : 'aspect-[3/4]'} rounded bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center shadow-inner`}><span className="text-slate-600 text-xs font-teko">EMPTY</span></div>;
 
@@ -147,7 +147,7 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isS
 
     if (showStatus) {
         return (
-            <div className={`relative w-full rounded border transition-all duration-200 select-none overflow-hidden flex flex-col ${isFainted ? 'opacity-50 grayscale' : 'opacity-100'} ${isActive ? 'scale-105 shadow-xl shadow-blue-500/20 z-10 border-blue-400' : 'border-slate-600'} ${isTargetable ? 'ring-2 ring-yellow-400 cursor-pointer' : ''} ${monster.fx && monster.fx.kind === 'damage' ? 'fx-hit' : ''} bg-slate-900 p-1`}>
+            <div className={`relative w-full rounded border transition-all duration-200 select-none overflow-hidden flex flex-col ${isFainted ? 'opacity-50 grayscale' : 'opacity-100'} ${isActive ? 'scale-105 shadow-xl shadow-blue-500/20 z-10 border-blue-400' : 'border-slate-600'} ${isAttacking ? 'ring-4 ring-cyan-400 shadow-xl shadow-cyan-400/40 z-20 scale-105' : ''} ${isTargetable ? 'ring-2 ring-yellow-400 cursor-pointer' : ''} ${monster.fx && monster.fx.kind === 'damage' ? 'fx-hit' : ''} bg-slate-900 p-1`}>
                 <Header />
                 <div className="w-full aspect-square bg-slate-900 rounded border border-slate-700 flex items-center justify-center overflow-hidden relative group">
                         {monster.img && !imgError ? (
@@ -176,7 +176,7 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isTargetable, isS
         );
     }
     return (
-        <div className={`relative w-full rounded border transition-all duration-200 select-none overflow-hidden flex flex-col ${isFainted ? 'opacity-50 grayscale' : 'opacity-100'} ${isActive ? 'scale-105 shadow-xl shadow-blue-500/20 z-10 border-blue-400' : 'border-slate-600'} ${isTargetable ? 'ring-2 ring-yellow-400 cursor-pointer' : ''} ${isSelected ? 'bg-blue-900/40' : 'bg-slate-800'} ${compact ? 'p-1' : 'p-2'}`}>
+        <div className={`relative w-full rounded border transition-all duration-200 select-none overflow-hidden flex flex-col ${isFainted ? 'opacity-50 grayscale' : 'opacity-100'} ${isActive ? 'scale-105 shadow-xl shadow-blue-500/20 z-10 border-blue-400' : 'border-slate-600'} ${isAttacking ? 'ring-4 ring-cyan-400 shadow-xl shadow-cyan-400/40 z-20 scale-105' : ''} ${isTargetable ? 'ring-2 ring-yellow-400 cursor-pointer' : ''} ${isSelected ? 'bg-blue-900/40' : 'bg-slate-800'} ${compact ? 'p-1' : 'p-2'}`}>
             <Header />
             <div className={`w-full aspect-square bg-slate-900 rounded border border-slate-700 mb-1 flex items-center justify-center overflow-hidden relative group`}>
                     {monster.img && !imgError ? (
