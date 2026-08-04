@@ -86,7 +86,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         if (!floor) return;
         const alive = save.party.filter(m => m.currentHp > 0);
         if (alive.length === 0) { flash('戦えるヴァーモンがいない。拠点で回復しよう'); return; }
-        setRun({ floorPos, step: 0, restsLeft: floor.rests, hints: rollHints(), log: [] });
+        setRun({ floorPos, step: 0, restsLeft: floor.rests, hints: rollHints(floorPos), log: [] });
         setPanel(null);
         setEvent(null);
         setView('dungeon');
@@ -98,9 +98,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     };
 
     // 4択それぞれの結果を先に確定し、ヒントだけ提示する（SPEC 4.8）
-    const rollHints = () => {
+    const rollHints = (floorPos) => {
         const h = {};
-        Object.keys(W.NODE_CHOICES).forEach(id => { h[id] = W.rollNodeOutcome(id); });
+        Object.keys(W.NODE_CHOICES).forEach(id => { h[id] = W.rollNodeOutcome(id, floorPos); });
         return h;
     };
 
@@ -142,16 +142,43 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         })];
     };
 
+    // 改造研究員（SPEC 4.16）。雑魚研究員は野生と同格の1〜2体、
+    // エリート研究員はアーキタイプ編成（4体・専用moves）をそのまま装備させる
+    const buildResearcher = (kind) => {
+        if (kind === 'researcher_weak') {
+            const pool = floor.wild.map(n => dbMonsters.find(m => m.name === n)).filter(Boolean);
+            if (!pool.length) return [];
+            const count = W.rollEnemyCount(floor, run.step);
+            const picks = [];
+            for (let i = 0; i < count; i++) picks.push(pool[Math.floor(Math.random() * pool.length)]);
+            return picks.map(bd => {
+                const inst = { id: bd.id, level: floor.level, exp: 0, knownMoves: [], equippedMoves: [] };
+                inst.equippedMoves = W.getWildMoveSet(bd, run.floorPos, dbMoves);
+                return W.toBattleMonster(inst, bd, { tier: 'normal', fullHeal: true });
+            });
+        }
+        const team = W.RESEARCHER_TEAMS[Math.floor(Math.random() * W.RESEARCHER_TEAMS.length)];
+        // 4体編成のためelite補正(1.2倍)を全員に掛けると数の暴力になりすぎる。
+        // 個体はnormal相当のステータスのまま、編成の噛み合わせ自体を強さにする
+        return team.members.map(mem => {
+            const bd = dbMonsters.find(m => m.id === mem.id);
+            if (!bd) return null;
+            const inst = { id: bd.id, level: floor.level, exp: 0, knownMoves: [], equippedMoves: mem.moves };
+            return W.toBattleMonster(inst, bd, { tier: 'normal', fullHeal: true });
+        }).filter(Boolean);
+    };
+
     const myBattleParty = () =>
         save.party.map(inst => {
             const bd = baseOf(inst.id);
             return bd ? W.toBattleMonster(inst, bd) : null;
         }).filter(Boolean);
 
-    const enterBattle = (tier) => {
-        const enemyParty = tier === 'boss' ? buildBoss() : buildEnemy(tier);
+    const enterBattle = (tier, researcherKind) => {
+        const isResearcher = researcherKind && researcherKind !== 'wild';
+        const enemyParty = tier === 'boss' ? buildBoss() : isResearcher ? buildResearcher(researcherKind) : buildEnemy(tier);
         if (!enemyParty.length) { flash('敵の生成に失敗した'); return; }
-        setBattle({ enemyParty, tier, isBoss: tier === 'boss' });
+        setBattle({ enemyParty, tier, isBoss: tier === 'boss', isResearcher });
         setView('battle');
     };
 
@@ -178,13 +205,21 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         const outcome = run.hints[choiceId];
         const flavor = W.pickFlavor(outcome);
         if (outcome === 'normal' || outcome === 'elite') {
-            addLog(outcome === 'elite' ? '強化個体と遭遇した' : 'ヴァーモンと遭遇した', outcome === 'elite' ? 'bad' : 'info');
+            const kind = outcome === 'elite' ? W.getEliteEncounterKind(run.floorPos) : 'wild';
+            const meta = {
+                wild: outcome === 'elite'
+                    ? { icon: '⚔️', title: '強化個体、出現！', log: '強化個体と遭遇した' }
+                    : { icon: '👁️', title: 'ヴァーモンと遭遇！', log: 'ヴァーモンと遭遇した' },
+                researcher_weak: { icon: '🧪', title: '研究員の気配！', log: '雑魚研究員と交戦になった' },
+                researcher_elite: { icon: '🧬', title: 'エリート研究員、出現！', log: 'エリート研究員の編成部隊と交戦になった' }
+            }[kind];
+            addLog(meta.log, outcome === 'elite' ? 'bad' : 'info');
             setEvent({
-                icon: outcome === 'elite' ? '⚔️' : '👁️',
-                title: outcome === 'elite' ? '強化個体、出現！' : 'ヴァーモンと遭遇！',
+                icon: meta.icon,
+                title: meta.title,
                 desc: flavor,
                 tone: outcome === 'elite' ? 'bad' : 'info',
-                onConfirm: () => enterBattle(outcome)
+                onConfirm: () => enterBattle(outcome, kind)
             });
         } else if (outcome === 'item') {
             const cheap = W.SHOP_ITEMS.filter(i => i.price <= 300);
@@ -203,7 +238,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     };
 
     const advanceStep = () => {
-        setRun(r => r ? { ...r, step: r.step + 1, hints: rollHints() } : r);
+        setRun(r => r ? { ...r, step: r.step + 1, hints: rollHints(r.floorPos) } : r);
     };
 
     // 道具の使用。拠点でも探索中でも同じ処理を使う
