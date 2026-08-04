@@ -62,6 +62,9 @@ const toBattleMonster = window.toBattleMonster = (instance, baseData, opts = {})
         ...baseData,
         uid: Math.random().toString(36).substr(2, 9),
         level: instance.level,
+        exp: instance.exp || 0,
+        // 野生の個体かどうか（AIの賢さの分岐に使う。SPEC相談: aiLogic.js参照）
+        isWild: !!opts.isWild,
         hp,
         maxHp: hp,
         currentHp: opts.fullHeal ? hp : Math.min(instance.currentHp != null ? instance.currentHp : hp, hp),

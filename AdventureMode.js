@@ -135,7 +135,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 : W.getEliteMoves(bd, lvl, dbMoves, run.floorPos);
             // 序盤フロアの野生は弱体個体（floor.wildStatMult）
             const extra = (tier === 'normal' && floor.wildStatMult) ? floor.wildStatMult : 1;
-            return W.toBattleMonster(inst, bd, { tier, fullHeal: true, extraMult: extra });
+            // 野生は「強化個体(elite)」でも訓練された存在ではないので、AI判断は常に野生扱い
+            return W.toBattleMonster(inst, bd, { tier, fullHeal: true, extraMult: extra, isWild: true });
         });
     };
 
@@ -167,12 +168,14 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             return picks.map(bd => {
                 const inst = { id: bd.id, level: floor.level, exp: 0, knownMoves: [], equippedMoves: [] };
                 inst.equippedMoves = W.getWildMoveSet(bd, run.floorPos, dbMoves);
-                return W.toBattleMonster(inst, bd, { tier: 'normal', fullHeal: true });
+                // 雑魚研究員は野生と同格の個体（SPEC 4.16）なのでAI判断も野生扱い
+                return W.toBattleMonster(inst, bd, { tier: 'normal', fullHeal: true, isWild: true });
             });
         }
         const team = W.RESEARCHER_TEAMS[Math.floor(Math.random() * W.RESEARCHER_TEAMS.length)];
         // 4体編成のためelite補正(1.2倍)を全員に掛けると数の暴力になりすぎる。
-        // 個体はnormal相当のステータスのまま、編成の噛み合わせ自体を強さにする
+        // 個体はnormal相当のステータスのまま、編成の噛み合わせ自体を強さにする。
+        // ただしエリート研究員は人間に訓練された編成のため、AI判断は賢いまま（isWildなし）
         return team.members.map(mem => {
             const bd = dbMonsters.find(m => m.id === mem.id);
             if (!bd) return null;
