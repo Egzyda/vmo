@@ -151,6 +151,7 @@ const createDefaultSave = window.createDefaultSave = () => ({
     clearedFloors: [],
     seenIds: [],
     gameCleared: false,
+    dungeonRun: null,
     version: 1
 });
 
@@ -167,6 +168,10 @@ const normalizeSave = window.normalizeSave = (raw) => {
         clearedFloors: Array.isArray(raw.clearedFloors) ? raw.clearedFloors : d.clearedFloors,
         seenIds: Array.isArray(raw.seenIds) ? raw.seenIds : d.seenIds,
         gameCleared: !!raw.gameCleared,
+        // ダンジョン探索中の途中状態（フロア位置・進行度・休憩回数・ログ）。
+        // クラッシュ/リロード後もダンジョンの途中から再開できるようにする。
+        // 戦闘中の状態は含めない（安全のため、戦闘は必ずこのチェックポイントの手前からやり直しになる）
+        dungeonRun: (raw.dungeonRun && typeof raw.dungeonRun === 'object') ? raw.dungeonRun : d.dungeonRun,
         version: raw.version || d.version
     };
 };

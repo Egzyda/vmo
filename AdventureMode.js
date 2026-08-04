@@ -36,7 +36,15 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             const s = await W.loadAdventureSave();
             if (!alive) return;
             setSave(s);
-            setView(s.party.length === 0 ? 'prologue' : 'base');
+            // ダンジョン探索中にクラッシュ/リロードした場合、その途中から再開する。
+            // 戦闘中の状態は保存していないため、直前のチェックポイント（フロア入場 or 前の一歩）まで戻る
+            if (s.dungeonRun && W.getFloorByPosition(s.dungeonRun.floorPos)) {
+                setRun(s.dungeonRun);
+                setView('dungeon');
+                flash('ダンジョン探索を再開しました');
+            } else {
+                setView(s.party.length === 0 ? 'prologue' : 'base');
+            }
         })();
         return () => { alive = false; };
     }, []);
@@ -88,10 +96,12 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         if (!floor) return;
         const alive = save.party.filter(m => m.currentHp > 0);
         if (alive.length === 0) { flash('戦えるヴァーモンがいない。拠点で回復しよう'); return; }
-        setRun({ floorPos, step: 0, restsLeft: floor.rests, hints: rollHints(floorPos), log: [] });
+        const nextRun = { floorPos, step: 0, restsLeft: floor.rests, hints: rollHints(floorPos), log: [] };
+        setRun(nextRun);
         setPanel(null);
         setEvent(null);
         setView('dungeon');
+        persist({ ...save, dungeonRun: nextRun });
     };
 
     // フロア内で起きたことをクリアまで残す（何をしてきたか見返せるように）
@@ -184,8 +194,11 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         setView('battle');
     };
 
+    // runPatch: run側に反映したい差分（休憩消費罠など）。呼び出し元のadvanceStepで
+    // step増加・ヒント再抽選と同じsetRunにまとめて適用する（連続setRunによる競合を避けるため）
     const applyTrap = async (trap) => {
         let next = { ...save };
+        let runPatch = null;
         const eff = trap.effect;
         if (eff.type === 'damage_all') {
             next.party = next.party.map(m => ({ ...m, currentHp: Math.max(0, m.currentHp - eff.value) }));
@@ -194,13 +207,14 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         } else if (eff.type === 'lose_money_percent') {
             next.money = Math.max(0, Math.floor(next.money * (1 - eff.value)));
         } else if (eff.type === 'lose_rest') {
-            setRun(r => ({ ...r, restsLeft: Math.max(0, r.restsLeft - 1) }));
+            runPatch = { restsLeft: Math.max(0, run.restsLeft - 1) };
         } else if (eff.type === 'debuff_random') {
             // next戦闘開始時に1ステータスがデバフ状態で始まる。どれが下がるかは個体ごとにランダム
             const stats = ['atk', 'def', 'spd'];
             next.party = next.party.map(m => ({ ...m, pendingDebuff: stats[Math.floor(Math.random() * stats.length)] }));
         }
         await persist(next);
+        return { next, runPatch };
     };
 
     const chooseNode = async (choiceId) => {
@@ -226,21 +240,27 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         } else if (outcome === 'item') {
             const cheap = W.SHOP_ITEMS.filter(i => i.price <= 300);
             const got = cheap[Math.floor(Math.random() * cheap.length)];
-            await persist(W.addItem(save, got.name));
+            const next = W.addItem(save, got.name);
+            await persist(next);
             addLog(`${got.name} を入手した`, 'good');
             setEvent({ icon: '🎁', title: `${got.name} を入手！`, desc: flavor, tone: 'good' });
-            advanceStep();
+            advanceStep(next);
         } else if (outcome === 'trap') {
             const trap = W.rollTrap();
-            await applyTrap(trap);
+            const { next, runPatch } = await applyTrap(trap);
             addLog(`罠【${trap.name}】を踏んだ`, 'bad');
             setEvent({ icon: '⚠️', title: `罠だ！ ${trap.name}`, desc: `${flavor}\n${trap.desc}`, tone: 'bad' });
-            advanceStep();
+            advanceStep(next, runPatch);
         }
     };
 
-    const advanceStep = () => {
-        setRun(r => r ? { ...r, step: r.step + 1, hints: rollHints(r.floorPos) } : r);
+    // baseSave: 呼び出し元が直前にpersistした最新のsave（省略時はclosureのsaveを使う）。
+    // runPatch: step増加・ヒント再抽選と一緒に適用したいrunの差分（罠の休憩消費など）
+    const advanceStep = async (baseSave, runPatch) => {
+        if (!run) return;
+        const nextRun = { ...run, ...(runPatch || {}), step: run.step + 1, hints: rollHints(run.floorPos) };
+        setRun(nextRun);
+        await persist({ ...(baseSave || save), dungeonRun: nextRun });
     };
 
     // 道具の使用。拠点でも探索中でも同じ処理を使う
@@ -282,8 +302,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
 
     const doRest = async () => {
         if (run.restsLeft <= 0) { flash('もう休憩できない'); return; }
+        const nextRun = { ...run, restsLeft: run.restsLeft - 1 };
         const next = {
             ...save,
+            dungeonRun: nextRun,
             party: save.party.map(m => {
                 const bd = baseOf(m.id);
                 if (!bd) return m;
@@ -291,8 +313,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 return { ...m, currentHp: Math.min(max, m.currentHp + Math.floor(max * 0.3)) };
             })
         };
+        setRun(nextRun);
         await persist(next);
-        setRun(r => ({ ...r, restsLeft: r.restsLeft - 1 }));
         addLog('休憩した（HP30%回復）', 'good');
     };
 
@@ -349,7 +371,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             else finishBattleStep(next);
         } else {
             // 全滅: 拠点へ強制送還。進捗・所持品は保持（SPEC方針）
-            await persist(healAtBase(next));
+            await persist(healAtBase({ ...next, dungeonRun: null }));
             setRun(null);
             setBattle(null);
             setBaseTab('home');
@@ -415,7 +437,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     ...s,
                     clearedFloors: cleared,
                     currentFloorPosition: Math.max(s.currentFloorPosition, nextPos),
-                    gameCleared: s.gameCleared || isFinalFloor
+                    gameCleared: s.gameCleared || isFinalFloor,
+                    dungeonRun: null
                 }));
                 setRun(null);
                 setBaseTab('home');
@@ -428,7 +451,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 }
             })();
         } else {
-            advanceStep();
+            advanceStep(s);
             setView('dungeon');
         }
     };
@@ -927,7 +950,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             <p className="text-xs text-slate-400 mb-4">拠点に戻り全回復するが、フロアの進行状況（{Math.min(run.step, floor.battles)}/{floor.battles}）は失われる</p>
                             <div className="flex gap-2">
                                 <button onClick={() => setRetreatConfirm(false)} className="flex-1 py-2.5 rounded bg-slate-700 text-sm font-bold">戻る</button>
-                                <button onClick={async () => { setRetreatConfirm(false); await persist(healAtBase(save)); setRun(null); setBaseTab('home'); setView('base'); }}
+                                <button onClick={async () => { setRetreatConfirm(false); await persist(healAtBase({ ...save, dungeonRun: null })); setRun(null); setBaseTab('home'); setView('base'); }}
                                     className="flex-1 py-2.5 rounded bg-red-700 text-sm font-bold">撤退する</button>
                             </div>
                         </div>
