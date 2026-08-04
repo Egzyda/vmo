@@ -24,6 +24,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [movePartyIndex, setMovePartyIndex] = useState(null); // 技入れ替え対象
     const [pendingLearn, setPendingLearn] = useState(null); // 装備満杯時の入れ替え選択中の技名
     const [retreatConfirm, setRetreatConfirm] = useState(false); // 撤退確認モーダル
+    const [capturing, setCapturing] = useState(false); // 捕獲演出中フラグ
     const logEndRef = useRef(null);
 
     const baseOf = (id) => dbMonsters.find(m => m.id === id);
@@ -361,6 +362,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const resolveCapture = async (deviceName) => {
         const target = captureQueue[0];
         if (!target) return;
+        setCapturing(true);
         const tier = battle && battle.tier === 'boss' ? 'boss' : (battle ? battle.tier : 'normal');
         let next = { ...save };
         const ownedIds = [...next.party, ...next.box].map(m => m.id);
@@ -377,6 +379,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         }
         await persist(next);
         const nm = bd ? bd.name : '？';
+        // 一瞬で結果が出ると呆気ないので、捕獲デバイスが揺れる演出を1秒挟んでから結果を見せる
+        await new Promise(r => setTimeout(r, 1000));
+        setCapturing(false);
         addLog(res.success ? `${nm} を捕獲した！` : `${nm} の捕獲に失敗`, res.success ? 'good' : 'bad');
         setCaptureResult({ name: nm, success: res.success });
     };
@@ -603,6 +608,17 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             .filter(n => (save.items[n] || 0) > 0)
             .map(n => ({ name: n, qty: save.items[n], rate: W.getCaptureRate(tier, target.level || 1, n) }));
         const bareRate = W.getCaptureRate(tier, target.level || 1, null);
+
+        if (capturing) {
+            return (
+                <div className="app-container p-4 text-white flex flex-col items-center justify-center safe-bottom">
+                    <div className="w-32 h-32 bg-slate-900 rounded-lg overflow-hidden mb-3 border border-slate-700 flex items-center justify-center">
+                        <span className="text-6xl anim-capture-wobble">🔴</span>
+                    </div>
+                    <div className="font-teko text-2xl tracking-widest text-slate-300 animate-pulse">捕獲中...</div>
+                </div>
+            );
+        }
 
         if (captureResult) {
             return (
