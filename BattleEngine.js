@@ -238,7 +238,7 @@ const BattleEngine = ({
             if (!moveData) continue;
             actor.isAttackingNow = true;
             setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
-            addLog(`${sidePrefix}${actor.name}の${action.moveName}!`, 'move'); await wait(300);
+            addLog(`${sidePrefix}${actor.name}の${action.moveName}!`, 'move'); await wait(700);
 
             if (moveData.effect === 'protect') {
                 let chance = 100; if (actor.protectStreak > 0) chance = 30;

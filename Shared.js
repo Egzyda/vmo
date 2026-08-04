@@ -258,6 +258,23 @@ const MonsterDetailModal = window.MonsterDetailModal = ({ monster, showMoves, db
                         </div>
                     </div>
 
+                    {/* 自分の手持ちのみ次のレベルまでの経験値を表示（敵の内部進捗は見せない） */}
+                    {showMoves && monster.exp != null && window.getRequiredExp && (
+                        <div className="mb-2">
+                            <div className="flex justify-between text-[10px] text-slate-300 mb-0.5">
+                                <span className="text-cyan-400 font-bold">EXP</span>
+                                {monster.level >= (window.MAX_LEVEL || 100)
+                                    ? <span className="text-cyan-300">MAX LEVEL</span>
+                                    : <span>{monster.exp} / {window.getRequiredExp(monster.level)}</span>}
+                            </div>
+                            {monster.level < (window.MAX_LEVEL || 100) && (
+                                <div className="w-full h-1.5 bg-slate-800 rounded overflow-hidden">
+                                    <div className="h-full bg-cyan-400" style={{ width: Math.min(100, Math.round(monster.exp / window.getRequiredExp(monster.level) * 100)) + '%' }} />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {rows.map(r => {
                         const stage = (monster.buffs && monster.buffs[r.key]) || 0;
                         const mul = statMul(stage);

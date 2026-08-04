@@ -200,9 +200,14 @@ const evaluateAction = (moveData, actor, targetSlot, aiState, playerState, myFie
     // 4. 攻撃技 (Aggressive Kill)
     // ---------------------------------------------------------
     if (moveData.category === 'physical' || moveData.category === 'special_damage') {
+        // actor.isWild: 野生の個体（研究員に訓練された編成やボスではない）は
+        // 「複数体に当たるから効率がいい」という損得計算をしない。
+        // これをしないと、野生が毎ターン全体技だけを撃ち続ける不自然な動きになる
+        const isWild = !!actor.isWild;
         let maxDamage = 0;
         let killCount = 0;
         let isResisted = false;
+        let summedDamage = 0;
 
         targets.forEach(t => {
             const target = t.mon;
@@ -223,23 +228,26 @@ const evaluateAction = (moveData, actor, targetSlot, aiState, playerState, myFie
                     score += 15000; // 確殺だが後手（相打ち覚悟）
                 }
             } else {
-                // 通常ダメージ加算
-                score += dmg;
+                summedDamage += dmg;
             }
 
             // 削りボーナス
-            if (target.currentHp - dmg < target.maxHp * 0.5) score += 2000;
+            if (target.currentHp - dmg < target.maxHp * 0.5) score += isWild ? 500 : 2000;
             if (dmg > maxDamage) maxDamage = dmg;
 
             // タイプ相性
             const typeMod = getTypeMultiplier(moveData.type, target.type, moveData.special_type);
-            if (typeMod > 1.0) score += 1000;
+            if (typeMod > 1.0) score += isWild ? 300 : 1000;
             if (typeMod < 1.0) isResisted = true;
         });
 
+        // 通常ダメージの加算方法：知的な個体は複数体分を合算して「効率」を評価するが、
+        // 野生は目の前の一番痛い一撃だけを基準に判断する（全体技を数の暴力として選ばない）
+        score += isWild ? maxDamage : summedDamage;
+
         if (isResisted && killCount === 0) score -= 3000;
 
-        if (moveData.target === 'all_enemies' && targets.length >= 2) {
+        if (!isWild && moveData.target === 'all_enemies' && targets.length >= 2) {
             score += 3000;
         }
 
