@@ -64,7 +64,7 @@ const getExp = window.getExp = (baseExp, myLevel, enemyLevel) => {
 
 // 所持金ドロップ（SPEC 4.6）
 const getDropMoney = window.getDropMoney = (enemyLevel, rng = Math.random) => {
-    const base = 50 + enemyLevel * 10;
+    const base = 75 + enemyLevel * 12;
     const variance = Math.floor(base * 0.2);
     return base + Math.floor(rng() * variance * 2) - variance;
 };
@@ -369,7 +369,7 @@ const rollTrap = window.rollTrap = (rng = Math.random) => {
 const getDoubleEncounterRate = window.getDoubleEncounterRate = (floor, stepInFloor) => {
     const base = floor && typeof floor.baseRate === 'number' ? floor.baseRate : 0;
     const ramp = floor && typeof floor.rampPerStep === 'number' ? floor.rampPerStep : 0;
-    return Math.max(0, Math.min(1, base + ramp * Math.max(0, stepInFloor)));
+    return Math.max(0, Math.min(0.9, base + ramp * Math.max(0, stepInFloor)));
 };
 
 const rollEnemyCount = window.rollEnemyCount = (floor, stepInFloor, rng = Math.random) => {
@@ -381,15 +381,16 @@ const rollEnemyCount = window.rollEnemyCount = (floor, stepInFloor, rng = Math.r
 // ============================================================
 const SHOP_ITEMS = window.SHOP_ITEMS = [
     { name: "薬草", price: 50, kind: 'heal', value: 0.30, effect: "HP30%回復" },
-    { name: "回復薬", price: 100, kind: 'heal', value: 0.50, effect: "HP50%回復" },
-    { name: "アドレナリン", price: 250, kind: 'heal', value: 1.00, effect: "HP100%回復" },
+    { name: "回復薬", price: 80, kind: 'heal', value: 0.50, effect: "HP50%回復" },
+    { name: "アドレナリン", price: 120, kind: 'heal', value: 1.00, effect: "HP100%回復" },
     { name: "万能薬", price: 150, kind: 'cure', effect: "状態異常を全回復" },
     { name: "蘇生器", price: 300, kind: 'revive', value: 0.50, effect: "戦闘不能から50%HPで復活" },
-    { name: "同調デバイス Mk-I", price: 500, kind: 'capture', effect: "捕獲率+10%" },
-    { name: "同調デバイス Mk-II", price: 1200, kind: 'capture', effect: "捕獲率+20%" },
-    { name: "同調デバイス Mk-III", price: 2500, kind: 'capture', effect: "捕獲率+35%" },
-    { name: "同調デバイス Mk-IV", price: 5000, kind: 'capture', effect: "捕獲率+55%" },
-    { name: "同調デバイス Mk-V", price: 15000, kind: 'capture', effect: "捕獲率100%（確定）" }
+    { name: "回復スプレー", price: 260, kind: 'heal_all', value: 0.50, effect: "パーティ全員HP50%回復" },
+    { name: "同調デバイス Mk-I", price: 380, kind: 'capture', effect: "捕獲率+10%" },
+    { name: "同調デバイス Mk-II", price: 850, kind: 'capture', effect: "捕獲率+20%" },
+    { name: "同調デバイス Mk-III", price: 1700, kind: 'capture', effect: "捕獲率+35%" },
+    { name: "同調デバイス Mk-IV", price: 3400, kind: 'capture', effect: "捕獲率+55%" },
+    { name: "同調デバイス Mk-V", price: 9000, kind: 'capture', effect: "捕獲率100%（確定）" }
 ];
 
 // アイテムはバトル中使用不可（SPEC 4.6）
