@@ -7,12 +7,15 @@ const CAPTURE_RATES = window.CAPTURE_RATES = {
     boss: 0.10    // フロアボス
 };
 
-// 同調デバイス（捕獲率アイテム）。Mk-Vのみ確定捕獲でレベル補正を無視する
+// 同調デバイス（捕獲率アイテム）。Mk-Vのみ確定捕獲でレベル補正を無視する。
+// レベル補正後の捕獲率に「固定で加算」する方式（旧版は倍率だったため、
+// レベル補正で捕獲率が下がるほどデバイスの効果まで目減りし、
+// 高レベル相手ほどデバイスの価値を感じられない問題があった）
 const CAPTURE_DEVICES = window.CAPTURE_DEVICES = {
-    "同調デバイス Mk-I": 1.3,
-    "同調デバイス Mk-II": 1.8,
-    "同調デバイス Mk-III": 2.4,
-    "同調デバイス Mk-IV": 3.0,
+    "同調デバイス Mk-I": 0.10,
+    "同調デバイス Mk-II": 0.20,
+    "同調デバイス Mk-III": 0.35,
+    "同調デバイス Mk-IV": 0.55,
     "同調デバイス Mk-V": "guaranteed"
 };
 
@@ -24,13 +27,13 @@ const getCaptureLevelPenalty = window.getCaptureLevelPenalty = (targetLevel) => 
 
 // 捕獲成功率を計算（0〜1にクランプ）
 const getCaptureRate = window.getCaptureRate = (tier, targetLevel = 1, deviceName = null) => {
-    const device = deviceName ? CAPTURE_DEVICES[deviceName] : 1;
+    const device = deviceName ? CAPTURE_DEVICES[deviceName] : 0;
     if (device === "guaranteed") return 1.0;
 
     const base = CAPTURE_RATES[tier];
     if (base === undefined) throw new Error(`Unknown capture tier: ${tier}`);
 
-    return Math.min(1, base * getCaptureLevelPenalty(targetLevel) * (device || 1));
+    return Math.min(1, base * getCaptureLevelPenalty(targetLevel) + (device || 0));
 };
 
 // 同一モンスターは1体のみ（SPEC 4.5）

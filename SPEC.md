@@ -257,22 +257,25 @@ const CAPTURE_RATES = {
   boss: 0.10    // フロアボス
 };
 
-// 同調デバイス（捕獲率アイテム）。Mk-Vのみ確定捕獲でレベル補正を無視する
+// 同調デバイス（捕獲率アイテム）。Mk-Vのみ確定捕獲でレベル補正を無視する。
+// レベル補正後の捕獲率に固定加算する方式。倍率方式だと、レベル補正で
+// 捕獲率が下がった相手ほどデバイスの効果まで一緒に目減りし、
+// 高レベル相手ほど「高いデバイスを使った実感」が薄れる問題があったため
 const CAPTURE_DEVICES = {
-  "同調デバイス Mk-I":   1.3,
-  "同調デバイス Mk-II":  1.8,
-  "同調デバイス Mk-III": 2.4,
-  "同調デバイス Mk-IV":  3.0,
+  "同調デバイス Mk-I":   0.10, // +10%
+  "同調デバイス Mk-II":  0.20, // +20%
+  "同調デバイス Mk-III": 0.35, // +35%
+  "同調デバイス Mk-IV":  0.55, // +55%
   "同調デバイス Mk-V":   "guaranteed" // 100%固定
 };
 
 function getCaptureRate(tier, targetLevel, deviceName = null) {
-  const device = deviceName ? CAPTURE_DEVICES[deviceName] : 1;
+  const device = deviceName ? CAPTURE_DEVICES[deviceName] : 0;
   if (device === "guaranteed") return 1.0;
 
   const base = CAPTURE_RATES[tier];
   const levelPenalty = Math.max(0.3, 1 - (targetLevel - 1) * 0.008); // Lv100で最低0.3倍まで低下
-  return Math.min(1, base * levelPenalty * device);
+  return Math.min(1, base * levelPenalty + device);
 }
 // 同一モンスターは1体のみ
 ```
@@ -307,10 +310,10 @@ const SHOP_ITEMS = [
   { name: "アドレナリン", price: 250,  effect: "HP100%回復" },
   { name: "万能薬",       price: 150,  effect: "状態異常を全回復" },
   { name: "蘇生器",       price: 300,  effect: "戦闘不能から50%HPで復活" },
-  { name: "同調デバイス Mk-I",   price: 500,   effect: "捕獲率×1.3" },
-  { name: "同調デバイス Mk-II",  price: 1200,  effect: "捕獲率×1.8" },
-  { name: "同調デバイス Mk-III", price: 2500,  effect: "捕獲率×2.4" },
-  { name: "同調デバイス Mk-IV",  price: 5000,  effect: "捕獲率×3.0" },
+  { name: "同調デバイス Mk-I",   price: 500,   effect: "捕獲率+10%" },
+  { name: "同調デバイス Mk-II",  price: 1200,  effect: "捕獲率+20%" },
+  { name: "同調デバイス Mk-III", price: 2500,  effect: "捕獲率+35%" },
+  { name: "同調デバイス Mk-IV",  price: 5000,  effect: "捕獲率+55%" },
   { name: "同調デバイス Mk-V",   price: 15000, effect: "捕獲率100%（確定）" }
 ];
 // 価格は暫定値。プレイテストで調整する
