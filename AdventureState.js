@@ -263,8 +263,10 @@ const consumeItem = window.consumeItem = (save, itemName) => {
     return { ...save, items };
 };
 
-const buyItem = window.buyItem = (save, itemName) => {
+const buyItem = window.buyItem = (save, itemName, qty = 1) => {
     const item = window.SHOP_ITEMS.find(i => i.name === itemName);
-    if (!item || save.money < item.price) return { save, ok: false };
-    return { save: addItem({ ...save, money: save.money - item.price }, itemName), ok: true };
+    const n = Math.max(1, Math.floor(qty || 1));
+    const total = item ? item.price * n : Infinity;
+    if (!item || save.money < total) return { save, ok: false };
+    return { save: addItem({ ...save, money: save.money - total }, itemName, n), ok: true };
 };

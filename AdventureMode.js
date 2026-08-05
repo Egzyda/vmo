@@ -26,6 +26,13 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [retreatConfirm, setRetreatConfirm] = useState(false); // 撤退確認モーダル
     const [capturing, setCapturing] = useState(false); // 捕獲演出中フラグ
     const [itemTarget, setItemTarget] = useState(null); // 道具の使用対象選択中のアイテム名
+    const [floorClearInfo, setFloorClearInfo] = useState(null); // フロアボス撃破時のクリア表示 { floorId, floorName, text, reward }
+    const [lastReward, setLastReward] = useState(null); // 直前の戦闘報酬 { money, exp }（クリアモーダル表示用）
+    const [shopBuy, setShopBuy] = useState(null); // ショップ購入確認 { item, qty }
+    // ドラッグでの並び替え/入れ替え共通状態。
+    // { source: 'party'|'box', index, moved, overSource, overIndex }
+    const [drag, setDrag] = useState(null);
+    const [boxSwapPick, setBoxSwapPick] = useState(null); // タップ入れ替え: 選択中のボックス内インデックス
     const logEndRef = useRef(null);
 
     const baseOf = (id) => dbMonsters.find(m => m.id === id);
@@ -340,6 +347,69 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         await persist({ ...save, party });
     };
 
+    // ---------- ドラッグ並べ替え／入れ替え（パーティ内・パーティ⇔ボックス共通） ----------
+    // 専用のつまみ(ドラッグハンドル)からのみ開始するので、詳細を開くタップ操作とは競合しない。
+    // Pointer Events でマウス・タッチ両対応。実際のドロップ先は指/カーソル直下の
+    // data-drag-slot 要素から判定する（要素の並び替えアニメーションはせず、対象枠をハイライトするだけ）
+    const reorderArray = (arr, from, to) => {
+        const copy = [...arr];
+        const [item] = copy.splice(from, 1);
+        copy.splice(to, 0, item);
+        return copy;
+    };
+
+    const performDrop = async (srcSource, srcIndex, dstSource, dstIndex) => {
+        if (srcSource === dstSource && srcIndex === dstIndex) return;
+        if (srcSource === 'party' && dstSource === 'party') {
+            await persist({ ...save, party: reorderArray(save.party, srcIndex, dstIndex) });
+        } else if (srcSource === 'box' && dstSource === 'box') {
+            await persist({ ...save, box: reorderArray(save.box, srcIndex, dstIndex) });
+        } else {
+            // パーティ⇔ボックスの入れ替え
+            const party = [...save.party];
+            const box = [...save.box];
+            if (srcSource === 'party') { const t = party[srcIndex]; party[srcIndex] = box[dstIndex]; box[dstIndex] = t; }
+            else { const t = box[srcIndex]; box[srcIndex] = party[dstIndex]; party[dstIndex] = t; }
+            await persist({ ...save, party, box });
+            flash('入れ替えた');
+        }
+    };
+
+    const dragHandleProps = (source, index) => ({
+        style: { touchAction: 'none' },
+        onPointerDown: (e) => {
+            e.stopPropagation();
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDrag({ source, index, x: e.clientX, y: e.clientY, moved: false, overSource: null, overIndex: null });
+        },
+        onPointerMove: (e) => {
+            setDrag(d => {
+                if (!d || d.source !== source || d.index !== index) return d;
+                const moved = d.moved || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8;
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const slotEl = el && el.closest && el.closest('[data-drag-slot]');
+                const overSource = slotEl ? slotEl.getAttribute('data-drag-source') : null;
+                const overIndex = slotEl ? parseInt(slotEl.getAttribute('data-drag-index'), 10) : null;
+                return { ...d, moved, overSource, overIndex };
+            });
+        },
+        onPointerUp: (e) => {
+            setDrag(d => {
+                if (d && d.moved && d.overSource != null && !Number.isNaN(d.overIndex)) {
+                    performDrop(d.source, d.index, d.overSource, d.overIndex);
+                }
+                return null;
+            });
+        },
+        onPointerCancel: () => setDrag(null)
+    });
+
+    const dragSlotProps = (source, index) => ({
+        'data-drag-slot': 'true',
+        'data-drag-source': source,
+        'data-drag-index': index
+    });
+
     const doRest = async () => {
         if (run.restsLeft <= 0) { flash('もう休憩できない'); return; }
         const nextRun = { ...run, restsLeft: run.restsLeft - 1 };
@@ -384,6 +454,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             const avgEnemyLv = Math.round(enemies.reduce((s, e) => s + (e.level || 1), 0) / enemies.length);
             const money = enemies.reduce((s, e) => s + W.getDropMoney(e.level || 1), 0);
             next.money += money;
+            setLastReward({ money, exp: totalExp });
 
             const queue = [];
             next.party = next.party.map((inst, idx) => {
@@ -486,8 +557,14 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     setEpiloguePage(0);
                     setView('epilogue');
                 } else {
+                    const nextFloor = W.getFloorByPosition(nextPos);
                     setView('base');
-                    flash(W.FLOOR_CLEAR[floor.id] || `${floor.id} クリア！`);
+                    setFloorClearInfo({
+                        floorId: floor.id, floorName: floor.name,
+                        text: W.FLOOR_CLEAR[floor.id] || `${floor.id} クリア！`,
+                        reward: lastReward,
+                        nextFloor: (nextPos > s.currentFloorPosition && nextFloor) ? nextFloor : null
+                    });
                 }
             })();
         } else {
@@ -559,7 +636,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     onClick={e => e.stopPropagation()}>
                     <div className="flex-none flex justify-between items-center p-3 border-b border-slate-800">
                         <span className="font-teko text-lg tracking-wider text-cyan-300">{itemTarget} を誰に使う？</span>
-                        <button onClick={() => setItemTarget(null)} className="text-[11px] text-slate-400">閉じる</button>
+                        <button onClick={() => setItemTarget(null)} className="text-[11px] px-2.5 py-1 rounded border border-slate-600 bg-slate-800/80 text-slate-300 active:scale-95 transition">閉じる</button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3">
                         {eligible.length === 0
@@ -589,6 +666,89 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const Msg = () => msg ? (
         <div className="absolute bottom-2 inset-x-2 z-50 bg-slate-900/95 border border-cyan-500 rounded px-3 py-2 text-xs text-cyan-100 shadow-lg">{msg}</div>
     ) : null;
+
+    // フロアボス撃破後、拠点にいきなり戻って気づかないことがないよう
+    // 明示的に「クリア」を示してから閉じさせる
+    const FloorClearModal = () => {
+        if (!floorClearInfo) return null;
+        return (
+            <div className="absolute inset-0 z-[150] bg-black/85 flex items-center justify-center p-6 animate-fade-in"
+                onClick={() => setFloorClearInfo(null)}>
+                <div className="w-full max-w-[320px] rounded-lg border-2 border-yellow-400 bg-slate-900 p-5 text-center shadow-[0_0_40px_rgba(250,204,21,0.3)]"
+                    onClick={e => e.stopPropagation()}>
+                    <div className="text-4xl mb-1">🏆</div>
+                    <div className="font-teko text-3xl tracking-widest text-yellow-300 mb-1">FLOOR CLEAR</div>
+                    <div className="text-sm font-bold text-white mb-2">{floorClearInfo.floorId} {floorClearInfo.floorName}</div>
+                    <p className="text-xs text-slate-300 leading-relaxed mb-3">{floorClearInfo.text}</p>
+                    {floorClearInfo.reward && (
+                        <div className="flex justify-center gap-4 text-xs mb-3">
+                            <span className="text-yellow-300">+{floorClearInfo.reward.money}円</span>
+                            <span className="text-cyan-300">+{floorClearInfo.reward.exp}exp</span>
+                        </div>
+                    )}
+                    {floorClearInfo.nextFloor && (
+                        <div className="text-[10px] text-slate-400 mb-3">
+                            次のフロア解放: {floorClearInfo.nextFloor.id} {floorClearInfo.nextFloor.name}
+                        </div>
+                    )}
+                    <button onClick={() => setFloorClearInfo(null)}
+                        className="w-full py-2.5 rounded bg-gradient-to-b from-yellow-500 to-yellow-700 border border-yellow-300 text-sm font-bold text-slate-950 active:scale-95 transition">
+                        拠点へ戻る
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    // ショップ購入確認（個数もここで決めて一気に買える）
+    const ShopBuyModal = () => {
+        if (!shopBuy) return null;
+        const { item, qty } = shopBuy;
+        const total = item.price * qty;
+        const maxQty = Math.min(99, Math.max(1, Math.floor(save.money / item.price) || 1));
+        const setQty = (q) => setShopBuy(s => s ? { ...s, qty: Math.max(1, Math.min(99, q)) } : s);
+        const confirm = async () => {
+            const r = W.buyItem(save, item.name, qty);
+            if (r.ok) { await persist(r.save); flash(`${item.name} を${qty}個購入`); setShopBuy(null); }
+            else flash('所持金が足りない');
+        };
+        return (
+            <div className="absolute inset-0 z-[160] bg-black/80 flex items-center justify-center p-6" onClick={() => setShopBuy(null)}>
+                <div className="w-full max-w-[300px] rounded-lg border-2 border-cyan-600 bg-slate-900 p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <div className="text-center mb-3">
+                        <div className="font-bold text-base text-white">{item.name}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{item.effect}</div>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 mb-3">
+                        <button onClick={() => setQty(qty - 1)} disabled={qty <= 1}
+                            className={`w-9 h-9 rounded border text-lg font-bold ${qty <= 1 ? 'border-slate-800 text-slate-700' : 'border-slate-600 bg-slate-800 text-slate-200 active:scale-95 transition'}`}>−</button>
+                        <div className="w-14 text-center">
+                            <div className="text-xl font-bold font-teko">{qty}</div>
+                            <div className="text-[9px] text-slate-500">個</div>
+                        </div>
+                        <button onClick={() => setQty(qty + 1)} disabled={qty >= maxQty}
+                            className={`w-9 h-9 rounded border text-lg font-bold ${qty >= maxQty ? 'border-slate-800 text-slate-700' : 'border-slate-600 bg-slate-800 text-slate-200 active:scale-95 transition'}`}>＋</button>
+                    </div>
+                    {maxQty > 1 && (
+                        <button onClick={() => setQty(maxQty)} className="w-full text-[10px] text-cyan-400 mb-3 underline underline-offset-2">
+                            買えるだけ（{maxQty}個）
+                        </button>
+                    )}
+                    <div className="flex justify-between items-baseline mb-4 px-1">
+                        <span className="text-[10px] text-slate-400">合計</span>
+                        <span className={`text-lg font-bold ${total > save.money ? 'text-red-400' : 'text-yellow-300'}`}>{total}円</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={() => setShopBuy(null)} className="flex-1 py-2.5 rounded bg-slate-700 border border-slate-600 text-sm font-bold">やめる</button>
+                        <button onClick={confirm} disabled={total > save.money}
+                            className={`flex-1 py-2.5 rounded text-sm font-bold border ${total > save.money ? 'bg-slate-800 border-slate-700 text-slate-600' : 'bg-cyan-700 border-cyan-500 active:scale-95 transition'}`}>
+                            購入する
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     // ---- プロローグ ----
     if (view === 'prologue') {
@@ -679,7 +839,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         className={`w-full py-3 rounded font-teko text-xl tracking-wider ${starterPicks.length === 2 ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-slate-600'}`}>
                         START ({starterPicks.length}/2)
                     </button>
-                    <button onClick={onBack} className="w-full py-1.5 mt-1 text-slate-500 text-[10px]">BACK</button>
+                    <button onClick={onBack} className="w-full py-1.5 mt-1 rounded border border-slate-700 bg-slate-800/60 text-slate-400 text-[10px] active:scale-95 transition">BACK</button>
                 </div>
             </div>
         );
@@ -773,7 +933,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     <div className="text-[10px] text-slate-500 mb-2">同調デバイスを持っていれば成功率を上げられる（拠点のショップ）</div>
                 )}
 
-                <button onClick={skipCapture} className="w-full py-2 mt-2 text-slate-500 text-xs">何もしない</button>
+                <button onClick={skipCapture} className="w-full py-2 mt-2 rounded border border-slate-700 bg-slate-800/60 text-slate-400 text-xs active:scale-95 transition">何もしない</button>
             </div>
         );
     }
@@ -818,7 +978,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         className="w-full py-2 mt-1 rounded bg-slate-800 border border-slate-600 text-xs">
                         入れ替えず、覚えるだけにする（拠点で装備可）
                     </button>
-                    <button onClick={() => setPendingLearn(null)} className="w-full py-2 mt-1 text-slate-500 text-[11px]">
+                    <button onClick={() => setPendingLearn(null)} className="w-full py-2 mt-1 rounded border border-slate-700 bg-slate-800/60 text-slate-400 text-[11px] active:scale-95 transition">
                         別の技を選び直す
                     </button>
                 </div>
@@ -849,7 +1009,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 <div className="flex-none px-3 pt-3">
                     <div className="flex justify-between items-baseline">
                         <h2 className="font-teko text-2xl text-cyan-300 tracking-wider leading-none">{floor.id} {floor.name}</h2>
-                        <button onClick={() => setRetreatConfirm(true)} className="text-[10px] text-slate-500">撤退</button>
+                        <button onClick={() => setRetreatConfirm(true)}
+                            className="text-[10px] px-2.5 py-1 rounded border border-red-900/60 bg-red-950/30 text-red-300 active:scale-95 transition">🚪 撤退</button>
                     </div>
                     <div className="text-[10px] text-slate-400 mt-0.5">
                         進行 {Math.min(run.step, floor.battles)}/{floor.battles} ・ 休憩 {run.restsLeft}/{floor.rests} ・ 2体遭遇率 {dblRate}%
@@ -876,24 +1037,33 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     <div ref={logEndRef}></div>
                 </div>
 
-                {/* 手持ちHP */}
+                {/* 手持ちHP（拠点と同じアイコン表示＋HP数値） */}
                 <div className="flex-none px-3 py-1.5 border-t border-slate-800 bg-slate-950/60">
-                    {save.party.map((m, i) => {
-                        const bd = baseOf(m.id); if (!bd) return null;
-                        const max = W.getEffectiveStats(m, bd).hp;
-                        const pct = Math.max(0, Math.round(m.currentHp / max * 100));
-                        return (
-                            <div key={i} className="flex items-center gap-2 text-[10px] leading-tight">
-                                <span className="w-16 truncate">{bd.name}</span>
-                                {m.pendingStatus === 'poison' && <span title="毒" className="flex-none">💀</span>}
-                                <span className="text-slate-500 w-8">Lv{m.level}</span>
-                                <div className="flex-1 h-1.5 bg-slate-900 rounded overflow-hidden">
-                                    <div className={`h-full ${pct < 25 ? 'bg-red-500' : pct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: pct + '%' }} />
-                                </div>
-                                <span className="w-12 text-right text-slate-400">{m.currentHp}/{max}</span>
-                            </div>
-                        );
-                    })}
+                    <div className="flex gap-1.5">
+                        {save.party.map((m, i) => {
+                            const bd = baseOf(m.id); if (!bd) return null;
+                            const max = W.getEffectiveStats(m, bd).hp;
+                            const pct = Math.max(0, Math.round(m.currentHp / max * 100));
+                            const isFront = i < 2;
+                            return (
+                                <button key={i} onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
+                                    className={`relative flex-1 min-w-0 rounded border overflow-hidden text-left active:scale-95 transition ${isFront ? 'bg-cyan-950/50 border-cyan-600' : 'bg-slate-900/80 border-slate-700'}`}>
+                                    {isFront && <div className="absolute top-0.5 left-0.5 z-10 text-[7px] px-1 rounded bg-cyan-600 text-cyan-50 leading-tight">前衛</div>}
+                                    {m.pendingStatus === 'poison' && <div className="absolute top-0.5 right-0.5 z-10 text-[9px] leading-none" title="毒">💀</div>}
+                                    <div className="w-full aspect-square bg-slate-950">
+                                        {bd.img && <img src={bd.img} className={`w-full h-full object-contain ${m.currentHp <= 0 ? 'grayscale opacity-40' : ''}`} />}
+                                    </div>
+                                    <div className="px-1 pb-1">
+                                        <div className="text-[8px] text-slate-400 leading-tight">Lv{m.level}</div>
+                                        <div className="h-1 bg-slate-800 rounded overflow-hidden">
+                                            <div className={`h-full ${pct < 25 ? 'bg-red-500' : pct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: pct + '%' }} />
+                                        </div>
+                                        <div className="text-[7px] text-slate-400 leading-tight text-right">{m.currentHp}/{max}</div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {/* 選択肢は片手で押せるよう画面下部にまとめる */}
@@ -938,7 +1108,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             onClick={e => e.stopPropagation()}>
                             <div className="flex-none flex justify-between items-center p-3 border-b border-slate-800">
                                 <span className="font-teko text-xl tracking-wider text-cyan-300">ITEMS</span>
-                                <button onClick={() => setPanel(null)} className="text-[11px] text-slate-400">閉じる</button>
+                                <button onClick={() => setPanel(null)} className="text-[11px] px-2.5 py-1 rounded border border-slate-600 bg-slate-800/80 text-slate-300 active:scale-95 transition">閉じる</button>
                             </div>
                             <div className="flex-1 overflow-y-auto p-3">
                                 {Object.keys(save.items).length === 0
@@ -969,18 +1139,24 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             onClick={e => e.stopPropagation()}>
                             <div className="flex-none flex justify-between items-center p-3 border-b border-slate-800">
                                 <span className="font-teko text-xl tracking-wider text-cyan-300">PARTY</span>
-                                <button onClick={() => { setPanel(null); setMovePartyIndex(null); }} className="text-[11px] text-slate-400">閉じる</button>
+                                <button onClick={() => { setPanel(null); setMovePartyIndex(null); }}
+                                    className="text-[10px] px-2.5 py-1 rounded border border-slate-600 bg-slate-800/80 text-slate-300 active:scale-95 transition">閉じる</button>
                             </div>
                             <div className="flex-1 overflow-y-auto p-3">
-                                <div className="text-[9px] text-slate-500 mb-2">先頭2体が出撃時の前衛になる</div>
+                                <div className="text-[9px] text-slate-500 mb-2">先頭2体が出撃時の前衛になる・⠿を掴んでドラッグでも並び替えられる</div>
                                 {save.party.map((m, i) => {
                                     const bd = baseOf(m.id); if (!bd) return null;
                                     const st = W.getEffectiveStats(m, bd);
                                     const open = movePartyIndex === i;
                                     const isFront = i < 2;
+                                    const isDragOver = drag && drag.overSource === 'party' && drag.overIndex === i && !(drag.source === 'party' && drag.index === i);
+                                    const isDragging = drag && drag.source === 'party' && drag.index === i;
                                     return (
-                                        <div key={i} className={`mb-2 rounded border ${isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'}`}>
+                                        <div key={i} {...dragSlotProps('party', i)}
+                                            className={`mb-2 rounded border transition ${isDragOver ? 'border-yellow-400 bg-yellow-950/30' : isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
                                             <div className="flex items-center gap-2 p-2">
+                                                <div {...dragHandleProps('party', i)}
+                                                    className="w-5 h-8 flex-none flex items-center justify-center text-slate-500 text-sm cursor-grab active:cursor-grabbing select-none">⠿</div>
                                                 <div className="flex flex-col gap-0.5 flex-none">
                                                     <button onClick={() => moveParty(i, -1)} disabled={i === 0}
                                                         className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === 0 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▲</button>
@@ -1059,7 +1235,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 </div>
                 <div className="relative z-10 flex-none p-3 flex justify-between items-center border-b border-slate-800">
                     <h2 className="font-teko text-2xl text-cyan-300 tracking-wider">SELECT FLOOR</h2>
-                    <button onClick={() => setView('base')} className="text-[10px] text-slate-400">BACK</button>
+                    <button onClick={() => setView('base')} className="text-[10px] px-2.5 py-1 rounded border border-slate-600 bg-slate-800/80 text-slate-300 active:scale-95 transition">BACK</button>
                 </div>
                 <div className="relative z-10 flex-1 overflow-y-auto p-3 space-y-2 safe-bottom">
                     {W.FLOORS.slice(0, maxFloor).slice().reverse().map(f => {
@@ -1136,7 +1312,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     </div>
                     <div className="text-right">
                         <div className="text-sm text-yellow-300 font-bold">{save.money} 円</div>
-                        <button onClick={onBack} className="text-[10px] text-slate-400">TITLE</button>
+                        <button onClick={onBack} className="text-[10px] px-2.5 py-1 rounded border border-slate-600 bg-slate-800/80 text-slate-300 active:scale-95 transition">TITLE</button>
                     </div>
                 </div>
 
@@ -1208,6 +1384,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     ))}
                 </div>
                 {detailMon && <window.MonsterDetailModal monster={detailMon} showMoves dbMoves={dbMoves} onClose={() => setDetailMon(null)} />}
+                <FloorClearModal />
                 <Msg />
             </div>
         );
@@ -1230,38 +1407,46 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             <div className="flex-1 overflow-y-auto p-3">
                 {baseTab === 'party' && (
                     <>
-                        <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）・先頭2体が出撃時の前衛になる</div>
+                        <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）・先頭2体が出撃時の前衛になる・⠿を掴んでドラッグでも並び替えられる</div>
+                        {save.box.length > 0 && (
+                            <div className="text-[9px] text-cyan-300 bg-cyan-950/30 border border-cyan-800 rounded px-2 py-1 mb-2">
+                                💡 手持ちとボックスの入れ替えは、⠿を掴んでドラッグ、またはボックス側をタップしてから入れ替えたい手持ちをタップでもOK
+                            </div>
+                        )}
                         {save.party.map((m, i) => {
                             const bd = baseOf(m.id); if (!bd) return null;
                             const st = W.getEffectiveStats(m, bd);
                             const isFront = i < 2;
+                            const isDragOver = drag && drag.overSource === 'party' && drag.overIndex === i && !(drag.source === 'party' && drag.index === i);
+                            const isDragging = drag && drag.source === 'party' && drag.index === i;
+                            const swapTargetable = boxSwapPick != null;
+                            const rowClick = () => {
+                                if (swapTargetable) { performDrop('box', boxSwapPick, 'party', i); setBoxSwapPick(null); }
+                                else setDetailMon(W.toBattleMonster(m, bd));
+                            };
                             return (
-                                <div key={i} className={`flex items-center gap-2 p-2 mb-1 rounded border ${isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'}`}>
+                                <div key={i} {...dragSlotProps('party', i)}
+                                    className={`flex items-center gap-2 p-2 mb-1 rounded border transition ${isDragOver || swapTargetable ? 'border-yellow-400 bg-yellow-950/30' : isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
+                                    <div {...dragHandleProps('party', i)}
+                                        className="w-5 h-8 flex-none flex items-center justify-center text-slate-500 text-sm cursor-grab active:cursor-grabbing select-none">⠿</div>
                                     <div className="flex flex-col gap-0.5 flex-none">
                                         <button onClick={() => moveParty(i, -1)} disabled={i === 0}
                                             className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === 0 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▲</button>
                                         <button onClick={() => moveParty(i, 1)} disabled={i === save.party.length - 1}
                                             className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === save.party.length - 1 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▼</button>
                                     </div>
-                                    <button onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
+                                    <button onClick={rowClick}
                                         className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none relative">
                                         {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
                                     </button>
-                                    <div className="flex-1 min-w-0" onClick={() => setDetailMon(W.toBattleMonster(m, bd))}>
+                                    <div className="flex-1 min-w-0" onClick={rowClick}>
                                         <div className="text-xs font-bold truncate flex items-center gap-1">
                                             {bd.name} <span className="text-slate-500">Lv{m.level}</span>
                                             {isFront && <span className="text-[8px] px-1 rounded bg-cyan-700 text-cyan-100 flex-none">前衛</span>}
                                         </div>
                                         <div className="text-[9px] text-slate-400">HP{m.currentHp}/{st.hp} A{st.atk} D{st.def} S{st.spd}</div>
                                     </div>
-                                    {save.box.length > 0 && (
-                                        <button onClick={async () => {
-                                            const box = [...save.box];
-                                            const swapIn = box.shift();
-                                            const party = [...save.party]; party[i] = swapIn;
-                                            await persist({ ...save, party, box: [...box, m] });
-                                        }} className="text-[9px] px-2 py-1 bg-slate-700 rounded flex-none">交代</button>
-                                    )}
+                                    {swapTargetable && <span className="text-[9px] text-yellow-300 flex-none">ここに入替</span>}
                                 </div>
                             );
                         })}
@@ -1270,7 +1455,22 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                 <div className="text-[10px] text-slate-400 mt-3 mb-1">ボックス（{save.box.length}）</div>
                                 {save.box.map((m, i) => {
                                     const bd = baseOf(m.id); if (!bd) return null;
-                                    return <div key={i} className="text-[11px] py-1 border-b border-slate-800">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>;
+                                    const isDragOver = drag && drag.overSource === 'box' && drag.overIndex === i && !(drag.source === 'box' && drag.index === i);
+                                    const isDragging = drag && drag.source === 'box' && drag.index === i;
+                                    const picked = boxSwapPick === i;
+                                    return (
+                                        <div key={i} {...dragSlotProps('box', i)}
+                                            onClick={() => setBoxSwapPick(picked ? null : i)}
+                                            className={`flex items-center gap-2 p-1.5 mb-1 rounded border cursor-pointer transition ${picked ? 'border-yellow-400 bg-yellow-950/30' : isDragOver ? 'border-yellow-400 bg-yellow-950/30' : 'bg-slate-800/70 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
+                                            <div {...dragHandleProps('box', i)}
+                                                className="w-5 h-7 flex-none flex items-center justify-center text-slate-500 text-sm cursor-grab active:cursor-grabbing select-none">⠿</div>
+                                            <div className="w-7 h-7 bg-slate-900 rounded overflow-hidden flex-none">
+                                                {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
+                                            </div>
+                                            <div className="text-[11px] flex-1 min-w-0 truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
+                                            {picked && <span className="text-[9px] text-yellow-300 flex-none">手持ちをタップ</span>}
+                                        </div>
+                                    );
                                 })}
                             </>
                         )}
@@ -1305,11 +1505,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             <div className="text-[9px] text-slate-400">{item.effect}</div>
                         </div>
                         <div className="text-[10px] text-yellow-300 flex-none">{item.price}円</div>
-                        <button onClick={async () => {
-                            const r = W.buyItem(save, item.name);
-                            if (r.ok) { await persist(r.save); flash(`${item.name} を購入`); }
-                            else flash('所持金が足りない');
-                        }} className="text-[9px] px-2 py-1 bg-cyan-700 rounded flex-none">買う</button>
+                        <button onClick={() => setShopBuy({ item, qty: 1 })}
+                            className="text-[9px] px-2 py-1 bg-cyan-700 rounded flex-none border border-cyan-500 active:scale-95 transition">買う</button>
                     </div>
                 ))}
 
@@ -1343,6 +1540,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             </div>
             {detailMon && <window.MonsterDetailModal monster={detailMon} showMoves dbMoves={dbMoves} onClose={() => setDetailMon(null)} />}
             <ItemTargetPicker />
+            <ShopBuyModal />
             <Msg />
         </div>
     );
