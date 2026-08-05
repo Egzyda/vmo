@@ -84,8 +84,18 @@ const evaluateAction = (moveData, actor, targetSlot, aiState, playerState, myFie
     let targets = [];
     if (moveData.target === 'all_enemies' || moveData.target === 'all') {
         playerField.forEach((idx, slot) => { if (idx !== -1 && playerState[idx].currentHp > 0) targets.push({ mon: playerState[idx], slot }); });
+    } else if (moveData.target === 'all_allies') {
+        myField.forEach((idx, slot) => { if (idx !== -1 && aiState[idx].currentHp > 0) targets.push({ mon: aiState[idx], slot }); });
     } else if (moveData.target === 'field' || moveData.target === 'self') {
         targets.push({ mon: actor, slot: -1 });
+    } else if (moveData.target === 'ally') {
+        // 味方単体対象（回復・バフ）はmyField側から引く（相手側playerFieldではない）
+        if (targetSlot !== null) {
+            const tIdx = myField[targetSlot];
+            if (tIdx !== -1 && aiState[tIdx].currentHp > 0) {
+                targets.push({ mon: aiState[tIdx], slot: targetSlot });
+            }
+        }
     } else if (targetSlot !== null) {
         const tIdx = playerField[targetSlot];
         if (tIdx !== -1 && playerState[tIdx].currentHp > 0) {
@@ -254,6 +264,32 @@ const evaluateAction = (moveData, actor, targetSlot, aiState, playerState, myFie
         return score;
     }
 
+    // ---------------------------------------------------------
+    // 7. 回復技（HPが欠けている時だけ、欠け具合に応じて評価する）
+    // ---------------------------------------------------------
+    // 修正前は他の状態異常技と同じ一律-500だったため、被ダメ計算が不利な
+    // （タイプ相性で抜けない等の）攻撃技よりも「無条件でマシなスコア」になり、
+    // 満タンHPでも回復技を連発し続ける不具合があった
+    if (moveData.effect === 'heal') {
+        if (targets.length === 0) return -9999;
+        const percent = moveData.heal_percent || (window.CONSTANTS && window.CONSTANTS.HEAL_PERCENT) || 0.3;
+        let totalHealed = 0;
+        let missingCount = 0;
+        targets.forEach(t => {
+            const missing = t.mon.maxHp - t.mon.currentHp;
+            if (missing > 0) missingCount++;
+            totalHealed += Math.min(missing, Math.floor(t.mon.maxHp * percent));
+        });
+        // 誰も欠けていないなら撃つ意味がない。タイプ相性で抜けない攻撃技（-3000級）より
+        // 確実に下まで落とし、「攻撃技が多少不利でも回復より攻撃を選ぶ」を保証する
+        if (missingCount === 0) return -9000;
+        const avgHpRate = targets.reduce((s, t) => s + t.mon.currentHp / t.mon.maxHp, 0) / targets.length;
+        // 8割以上残っているならまだ様子見（無駄撃ち防止）
+        if (avgHpRate > 0.8) return -4000;
+        // 実際に回復できる量が大きいほど、また瀕死に近いほど優先度を上げる
+        return Math.floor(totalHealed * 3) + (avgHpRate < 0.4 ? 800 : 0);
+    }
+
     return -500;
 };
 
@@ -309,10 +345,20 @@ const getBestAIAction = window.getBestAIAction = (actorIndex, actorSlot, aiState
         if (!moveData) return;
 
         let targetSlots = [];
-        if (['all_enemies', 'all', 'field'].includes(moveData.target)) {
+        if (['all_enemies', 'all', 'field', 'all_allies'].includes(moveData.target)) {
             targetSlots.push(null);
         } else if (moveData.target === 'self') {
             targetSlots.push(actorSlot);
+        } else if (moveData.target === 'ally') {
+            // 味方単体対象（回復・バフ）は味方側フィールド(myField)から選ぶ。
+            // ここを playerField(相手側) のまま評価すると、回復技が常に相手側HPを
+            // 参照してしまい「誰も欠けていない」判定にならず score が一律 -500 に落ちて、
+            // 被ダメージ計算の失敗(-3000級)より相対的にマシに見えて連発される不具合があった
+            [0, 1].forEach(s => {
+                if (myField[s] !== -1 && aiState[myField[s]].currentHp > 0) {
+                    targetSlots.push(s);
+                }
+            });
         } else {
             [0, 1].forEach(s => {
                 if (playerField[s] !== -1 && playerState[playerField[s]].currentHp > 0) {
