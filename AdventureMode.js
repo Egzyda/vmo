@@ -9,6 +9,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [view, setView] = useState('loading'); // loading|starter|base|dungeon|battle|learn
     const [baseTab, setBaseTab] = useState('home'); // home|party|moves|shop|items
     const [msg, setMsg] = useState('');
+    const [msgKey, setMsgKey] = useState(0); // 同じ文言のトーストでもスライドインし直すためのkey
 
     // ダンジョン進行状態
     const [run, setRun] = useState(null); // { floorPos, step, restsLeft, hints }
@@ -33,6 +34,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     // { source: 'party'|'box', index, moved, overSource, overIndex }
     const [drag, setDrag] = useState(null);
     const [boxSwapPick, setBoxSwapPick] = useState(null); // タップ入れ替え: 選択中のボックス内インデックス
+    const [moveDrag, setMoveDrag] = useState(null); // 装備技並び替え用ドラッグ状態 { partyIndex, index, moved, overIndex }
     const logEndRef = useRef(null);
 
     const baseOf = (id) => dbMonsters.find(m => m.id === id);
@@ -77,7 +79,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         })
     });
 
-    const flash = (text) => { setMsg(text); setTimeout(() => setMsg(''), 2600); };
+    const flash = (text) => { setMsg(text); setMsgKey(k => k + 1); setTimeout(() => setMsg(''), 2600); };
 
     // ---------- 初期選択（6体から2体） ----------
     const [starterPicks, setStarterPicks] = useState([]);
@@ -410,6 +412,90 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         'data-drag-index': index
     });
 
+    // ---------- 装備技の並び替え（ドラッグ／スワイプ） ----------
+    // バトル画面のコマンドボタンは equippedMoves の並び順そのまま出るので、
+    // ここでの並び替えは「よく使う技を押しやすい位置に置く」実利がある
+    const reorderEquipped = async (partyIndex, from, to) => {
+        const m = save.party[partyIndex];
+        const arr = [...m.equippedMoves];
+        const [item] = arr.splice(from, 1);
+        arr.splice(to, 0, item);
+        const updated = W.setEquippedMoves(m, arr);
+        await persist({ ...save, party: save.party.map((x, j) => j === partyIndex ? updated : x) });
+    };
+
+    const moveDragHandleProps = (partyIndex, index) => ({
+        style: { touchAction: 'none' },
+        onPointerDown: (e) => {
+            e.stopPropagation();
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setMoveDrag({ partyIndex, index, x: e.clientX, y: e.clientY, moved: false, overIndex: null });
+        },
+        onPointerMove: (e) => {
+            setMoveDrag(d => {
+                if (!d || d.partyIndex !== partyIndex || d.index !== index) return d;
+                const moved = d.moved || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8;
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const slotEl = el && el.closest && el.closest('[data-move-slot]');
+                const overIndex = (slotEl && slotEl.getAttribute('data-move-party') === String(partyIndex))
+                    ? parseInt(slotEl.getAttribute('data-move-index'), 10) : null;
+                return { ...d, moved, overIndex };
+            });
+        },
+        onPointerUp: () => {
+            setMoveDrag(d => {
+                if (d && d.moved && d.overIndex != null && d.overIndex !== d.index) {
+                    reorderEquipped(d.partyIndex, d.index, d.overIndex);
+                }
+                return null;
+            });
+        },
+        onPointerCancel: () => setMoveDrag(null)
+    });
+
+    // 拠点「技」タブ・探索中PARTYパネルの両方から使う共通の装備エディタ。
+    // 装備中（並び替え可）と未装備（タップで装備）を分けて表示する
+    const MoveEquipEditor = ({ partyIndex, m, compact }) => {
+        const unequipped = m.knownMoves.filter(mv => !m.equippedMoves.includes(mv));
+        const rowCls = compact ? 'px-2 py-1' : 'px-2 py-1.5';
+        return (
+            <div>
+                <div className="text-[9px] text-slate-500 mb-1">装備中（⠿を掴んでドラッグで並び替え・最大3）</div>
+                {m.equippedMoves.map((mv, mi) => {
+                    const d = dbMoves[mv] || {};
+                    const isDragOver = moveDrag && moveDrag.partyIndex === partyIndex && moveDrag.overIndex === mi && moveDrag.index !== mi;
+                    const isDragging = moveDrag && moveDrag.partyIndex === partyIndex && moveDrag.index === mi;
+                    return (
+                        <div key={mv} {...{ 'data-move-slot': 'true', 'data-move-party': partyIndex, 'data-move-index': mi }}
+                            className={`w-full flex items-center gap-1 mb-0.5 rounded text-[11px] border transition ${isDragOver ? 'border-yellow-400 bg-yellow-950/30' : 'border-cyan-400 bg-cyan-900/30'} ${isDragging ? 'opacity-40' : ''}`}>
+                            <div {...moveDragHandleProps(partyIndex, mi)}
+                                className="w-6 h-6 flex-none flex items-center justify-center text-slate-400 text-xs cursor-grab active:cursor-grabbing select-none">⠿</div>
+                            <button onClick={() => toggleEquip(partyIndex, mv)} className={`flex-1 flex justify-between items-center ${rowCls} text-left`}>
+                                <span>{mv}</span>
+                                <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
+                            </button>
+                        </div>
+                    );
+                })}
+                {unequipped.length > 0 && (
+                    <>
+                        <div className="text-[9px] text-slate-500 mt-2 mb-1">未装備（タップで装備）</div>
+                        {unequipped.map(mv => {
+                            const d = dbMoves[mv] || {};
+                            return (
+                                <button key={mv} onClick={() => toggleEquip(partyIndex, mv)}
+                                    className={`w-full flex justify-between items-center ${rowCls} mb-0.5 rounded text-[11px] border border-slate-700 bg-slate-800/60 text-slate-400`}>
+                                    <span>{mv}</span>
+                                    <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
+                                </button>
+                            );
+                        })}
+                    </>
+                )}
+            </div>
+        );
+    };
+
     const doRest = async () => {
         if (run.restsLeft <= 0) { flash('もう休憩できない'); return; }
         const nextRun = { ...run, restsLeft: run.restsLeft - 1 };
@@ -664,7 +750,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     };
 
     const Msg = () => msg ? (
-        <div className="absolute bottom-2 inset-x-2 z-50 bg-slate-900/95 border border-cyan-500 rounded px-3 py-2 text-xs text-cyan-100 shadow-lg">{msg}</div>
+        <div key={msg + msgKey} className="absolute top-14 right-2 z-50 max-w-[240px] bg-slate-900/95 border border-cyan-500 rounded px-3 py-2 text-xs text-cyan-100 shadow-lg anim-toast-in">{msg}</div>
     ) : null;
 
     // フロアボス撃破後、拠点にいきなり戻って気づかないことがないよう
@@ -1179,18 +1265,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                             </div>
                                             {open && (
                                                 <div className="px-2 pb-2">
-                                                    <div className="text-[9px] text-slate-500 mb-1">タップで装備を切り替え（最大3・装備 {m.equippedMoves.length}/3）</div>
-                                                    {m.knownMoves.map(mv => {
-                                                        const d = dbMoves[mv] || {};
-                                                        const on = m.equippedMoves.includes(mv);
-                                                        return (
-                                                            <button key={mv} onClick={() => toggleEquip(i, mv)}
-                                                                className={`w-full flex justify-between items-center px-2 py-1.5 mb-0.5 rounded text-[11px] border ${on ? 'border-cyan-400 bg-cyan-900/30' : 'border-slate-700 bg-slate-800/60 text-slate-400'}`}>
-                                                                <span>{mv}</span>
-                                                                <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
-                                                            </button>
-                                                        );
-                                                    })}
+                                                    {MoveEquipEditor({ partyIndex: i, m })}
                                                 </div>
                                             )}
                                         </div>
@@ -1483,17 +1558,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         <div key={i} className="mb-3">
                             <div className="text-xs font-bold mb-1">{bd.name} <span className="text-slate-500">Lv{m.level}</span>
                                 <span className="text-[9px] text-slate-500 ml-1">装備 {m.equippedMoves.length}/3</span></div>
-                            {m.knownMoves.map(mv => {
-                                const d = dbMoves[mv] || {};
-                                const on = m.equippedMoves.includes(mv);
-                                return (
-                                    <button key={mv} onClick={() => toggleEquip(i, mv)}
-                                        className={`w-full flex justify-between items-center px-2 py-1 mb-0.5 rounded text-[11px] border ${on ? 'border-cyan-400 bg-cyan-900/30' : 'border-slate-700 bg-slate-800/60 text-slate-400'}`}>
-                                        <span>{mv}</span>
-                                        <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
-                                    </button>
-                                );
-                            })}
+                            {MoveEquipEditor({ partyIndex: i, m, compact: true })}
                         </div>
                     );
                 })}

@@ -112,6 +112,10 @@ html, body {
 .fx-debuff { animation: fx-debuff 0.7s ease-out; }
 .anim-fade-in { animation: fade-in-up 0.3s ease-out forwards; }
 
+/* トースト通知: 右からシュッとスライドイン */
+@keyframes toast-slide-in { 0% { opacity: 0; transform: translateX(24px); } 100% { opacity: 1; transform: translateX(0); } }
+.anim-toast-in { animation: toast-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 .loading-spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #3b82f6; animation: spin 1s ease infinite; }
 
