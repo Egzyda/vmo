@@ -859,43 +859,53 @@ const BattleEngine = ({
                                 const mData = dbMoves[selectingMove] || {};
                                 const targetsEnemy = ['single', 'enemy', 'any_single'].includes(mData.target);
                                 const targetsAlly = ['ally', 'any_single'].includes(mData.target);
-                                const opts = [];
+                                // 実際の盤面と同じ左右並びで選ばせる（縦リストだと本来の並びと混乱する）
+                                const enemyOpts = [];
                                 if (targetsEnemy) {
                                     enemyField.forEach((pidx, slot) => {
                                         const mon = pidx !== -1 ? enemyState[pidx] : null;
-                                        if (mon && mon.currentHp > 0) opts.push({ mon, slot, side: 'enemy' });
+                                        if (mon && mon.currentHp > 0) enemyOpts.push({ mon, slot, side: 'enemy' });
                                     });
                                 }
+                                const allyOpts = [];
                                 if (targetsAlly) {
                                     myField.forEach((pidx, slot) => {
                                         const mon = pidx !== -1 ? myState[pidx] : null;
-                                        if (mon && mon.currentHp > 0) opts.push({ mon, slot, side: 'player' });
+                                        if (mon && mon.currentHp > 0) allyOpts.push({ mon, slot, side: 'player' });
                                     });
                                 }
+                                const TargetCard = (o) => {
+                                    const tBg = TYPE_BG[o.mon.type] || TYPE_BG['normal'];
+                                    const pct = Math.max(0, Math.round(o.mon.currentHp / o.mon.maxHp * 100));
+                                    return (
+                                        <button key={o.side + o.slot}
+                                            onClick={() => handleCommandSelect('move', { moveName: selectingMove, targetSlot: o.slot, targetSide: o.side })}
+                                            className={`w-16 flex-none rounded border p-1 text-center transition-colors ${o.side === 'enemy' ? 'bg-red-950/40 border-red-800 hover:bg-red-900/40' : 'bg-blue-950/40 border-blue-800 hover:bg-blue-900/40'}`}>
+                                            <div className="w-full aspect-square bg-slate-900 rounded overflow-hidden mb-0.5">
+                                                {o.mon.img ? <img src={o.mon.img} className="w-full h-full object-contain" /> : <div className={`w-full h-full ${tBg} opacity-50`}></div>}
+                                            </div>
+                                            <div className="text-[10px] font-bold text-white truncate leading-tight">{o.mon.name}</div>
+                                            <div className="w-full h-1 bg-slate-800 rounded overflow-hidden my-0.5">
+                                                <div className={`h-full ${pct < 25 ? 'bg-red-500' : pct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: pct + '%' }} />
+                                            </div>
+                                            <div className="text-[8px] text-slate-300 leading-tight">{o.mon.currentHp}/{o.mon.maxHp}</div>
+                                        </button>
+                                    );
+                                };
                                 return (
                                     <div className="h-full flex flex-col p-1">
                                         <div className="text-yellow-400 text-xs text-center mb-1 flex-none">ターゲットを選択</div>
-                                        <div className="flex-1 flex gap-2 min-h-0">
-                                            <div className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scroll">
-                                                {opts.map(o => {
-                                                    const tBg = TYPE_BG[o.mon.type] || TYPE_BG['normal'];
-                                                    const pct = Math.max(0, Math.round(o.mon.currentHp / o.mon.maxHp * 100));
-                                                    return (
-                                                        <button key={o.side + o.slot}
-                                                            onClick={() => handleCommandSelect('move', { moveName: selectingMove, targetSlot: o.slot, targetSide: o.side })}
-                                                            className={`flex items-center gap-2 px-2 py-2 rounded border text-left transition-colors ${o.side === 'enemy' ? 'bg-red-950/40 border-red-800 hover:bg-red-900/40' : 'bg-blue-950/40 border-blue-800 hover:bg-blue-900/40'}`}>
-                                                            <span className={`text-[9px] px-1 py-0.5 rounded text-white font-bold flex-none ${tBg}`}>{TYPE_NAMES[o.mon.type]}</span>
-                                                            <span className="text-sm font-bold text-white truncate flex-1">{o.mon.name}</span>
-                                                            <span className="text-[10px] text-slate-300 flex-none">{o.mon.currentHp}/{o.mon.maxHp}</span>
-                                                            <span className="w-10 h-1.5 bg-slate-800 rounded overflow-hidden flex-none">
-                                                                <span className={`block h-full ${pct < 25 ? 'bg-red-500' : pct < 50 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: pct + '%' }} />
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })}
+                                        <div className="flex-1 flex gap-2 min-h-0 items-center">
+                                            <div className="flex-1 flex flex-col gap-2 justify-center">
+                                                {enemyOpts.length > 0 && (
+                                                    <div className="flex gap-1.5 justify-center">{enemyOpts.map(o => TargetCard(o))}</div>
+                                                )}
+                                                {allyOpts.length > 0 && (
+                                                    <div className="flex gap-1.5 justify-center">{allyOpts.map(o => TargetCard(o))}</div>
+                                                )}
                                             </div>
                                             <button onClick={() => setSelectingMove(null)}
-                                                className="w-12 bg-slate-800 border border-slate-600 rounded flex items-center justify-center text-slate-300 font-bold text-[10px] flex-none">
+                                                className="w-12 bg-slate-800 border border-slate-600 rounded flex items-center justify-center text-slate-300 font-bold text-[10px] flex-none self-stretch">
                                                 戻る
                                             </button>
                                         </div>
