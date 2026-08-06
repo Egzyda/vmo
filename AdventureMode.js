@@ -1347,9 +1347,19 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                                     </span>
                                                 );
                                             })}
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-700 text-red-300">
-                                                BOSS {f.bossKind === 'researcher' ? 'エリート研究員 編成部隊' : f.bossDuo ? `${f.boss} ×2` : f.boss}
-                                            </span>
+                                            {f.bossKind === 'researcher' ? (
+                                                <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-700 text-red-300">
+                                                    BOSS エリート研究員 編成部隊
+                                                </span>
+                                            ) : (() => {
+                                                const bossBd = dbMonsters.find(m => m.name === f.boss);
+                                                const bossOwned = bossBd && [...save.party, ...save.box].some(m => m.id === bossBd.id);
+                                                return (
+                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded border ${bossOwned ? 'border-slate-700 text-slate-500' : 'border-red-600 text-red-300'}`}>
+                                                        BOSS {f.bossDuo ? `${f.boss} ×2` : f.boss}{bossOwned ? '（捕獲済）' : ' ★'}
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 ) : (
