@@ -318,6 +318,13 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const useItemAll = async (name) => {
         const def = W.SHOP_ITEMS.find(i => i.name === name) || {};
         let next = W.consumeItem(save, name);
+        if (def.kind === 'cure_all') {
+            next.party = next.party.map(m => ({ ...m, pendingStatus: null }));
+            await persist(next);
+            const msg = `${name}を使った（全員の状態異常を回復）`;
+            if (run) addLog(msg, 'good'); else flash(msg);
+            return;
+        }
         next.party = next.party.map(m => {
             const bd = baseOf(m.id); if (!bd) return m;
             if (m.currentHp <= 0) return m;
@@ -1201,7 +1208,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                     ? <div className="text-xs text-slate-500">所持品なし</div>
                                     : Object.entries(save.items).map(([name, qty]) => {
                                         const def = W.SHOP_ITEMS.find(i => i.name === name) || {};
-                                        const usable = def.kind === 'heal' || def.kind === 'cure' || def.kind === 'revive' || def.kind === 'heal_all';
+                                        const usable = def.kind === 'heal' || def.kind === 'cure' || def.kind === 'revive' || def.kind === 'heal_all' || def.kind === 'cure_all';
                                         return (
                                             <div key={name} className="flex items-center gap-2 p-2 mb-1 bg-slate-800 rounded border border-slate-700">
                                                 <div className="flex-1 min-w-0">
@@ -1209,7 +1216,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                                     <div className="text-[9px] text-slate-400">{def.effect || ''}</div>
                                                 </div>
                                                 {usable
-                                                    ? <button onClick={() => def.kind === 'heal_all' ? useItemAll(name) : setItemTarget(name)} className="text-[10px] px-3 py-1.5 bg-green-700 rounded flex-none">使う</button>
+                                                    ? <button onClick={() => (def.kind === 'heal_all' || def.kind === 'cure_all') ? useItemAll(name) : setItemTarget(name)} className="text-[10px] px-3 py-1.5 bg-green-700 rounded flex-none">使う</button>
                                                     : <span className="text-[9px] text-slate-500 flex-none">戦闘/捕獲用</span>}
                                             </div>
                                         );
@@ -1590,7 +1597,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         ? <div className="text-xs text-slate-500">所持品なし</div>
                         : Object.entries(save.items).map(([name, qty]) => {
                             const def = W.SHOP_ITEMS.find(i => i.name === name) || {};
-                            const usable = def.kind === 'heal' || def.kind === 'cure' || def.kind === 'revive' || def.kind === 'heal_all';
+                            const usable = def.kind === 'heal' || def.kind === 'cure' || def.kind === 'revive' || def.kind === 'heal_all' || def.kind === 'cure_all';
                             return (
                                 <div key={name} className="flex items-center gap-2 p-2 mb-1 bg-slate-800 rounded border border-slate-700">
                                     <div className="flex-1 min-w-0">
@@ -1598,7 +1605,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                         <div className="text-[9px] text-slate-400">{def.effect || ''}</div>
                                     </div>
                                     {usable && (
-                                        <button onClick={() => def.kind === 'heal_all' ? useItemAll(name) : setItemTarget(name)}
+                                        <button onClick={() => (def.kind === 'heal_all' || def.kind === 'cure_all') ? useItemAll(name) : setItemTarget(name)}
                                             className="text-[9px] px-2 py-1 bg-green-700 rounded flex-none">使う</button>
                                     )}
                                 </div>
