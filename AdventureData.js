@@ -64,7 +64,7 @@ const getExp = window.getExp = (baseExp, myLevel, enemyLevel) => {
 
 // 所持金ドロップ（SPEC 4.6）
 const getDropMoney = window.getDropMoney = (enemyLevel, rng = Math.random) => {
-    const base = 75 + enemyLevel * 12;
+    const base = 110 + enemyLevel * 18;
     const variance = Math.floor(base * 0.2);
     return base + Math.floor(rng() * variance * 2) - variance;
 };
@@ -386,11 +386,12 @@ const SHOP_ITEMS = window.SHOP_ITEMS = [
     { name: "万能薬", price: 150, kind: 'cure', effect: "状態異常を全回復" },
     { name: "蘇生器", price: 300, kind: 'revive', value: 0.50, effect: "戦闘不能から50%HPで復活" },
     { name: "回復スプレー", price: 260, kind: 'heal_all', value: 0.50, effect: "パーティ全員HP50%回復" },
-    { name: "同調デバイス Mk-I", price: 250, kind: 'capture', effect: "捕獲率+10%" },
-    { name: "同調デバイス Mk-II", price: 550, kind: 'capture', effect: "捕獲率+20%" },
-    { name: "同調デバイス Mk-III", price: 1700, kind: 'capture', effect: "捕獲率+35%" },
-    { name: "同調デバイス Mk-IV", price: 3400, kind: 'capture', effect: "捕獲率+55%" },
-    { name: "同調デバイス Mk-V", price: 9000, kind: 'capture', effect: "捕獲率100%（確定）" }
+    { name: "解毒スプレー", price: 200, kind: 'cure_all', effect: "パーティ全員の状態異常を全回復" },
+    { name: "同調デバイス Mk-I", price: 150, kind: 'capture', effect: "捕獲率+10%" },
+    { name: "同調デバイス Mk-II", price: 350, kind: 'capture', effect: "捕獲率+20%" },
+    { name: "同調デバイス Mk-III", price: 1000, kind: 'capture', effect: "捕獲率+35%" },
+    { name: "同調デバイス Mk-IV", price: 2000, kind: 'capture', effect: "捕獲率+55%" },
+    { name: "同調デバイス Mk-V", price: 5000, kind: 'capture', effect: "捕獲率100%（確定）" }
 ];
 
 // アイテムはバトル中使用不可（SPEC 4.6）

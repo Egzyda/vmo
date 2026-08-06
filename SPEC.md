@@ -299,7 +299,7 @@ function getCaptureRate(tier, targetLevel, deviceName = null) {
 ```javascript
 // 通貨: 円（乱数幅あり）
 function getDropMoney(enemyLevel) {
-  const base = 75 + enemyLevel * 12;
+  const base = 110 + enemyLevel * 18;
   const variance = Math.floor(base * 0.2); // ±20%
   return base + Math.floor(Math.random() * variance * 2) - variance;
 }
@@ -311,11 +311,12 @@ const SHOP_ITEMS = [
   { name: "万能薬",       price: 150,  effect: "状態異常を全回復" },
   { name: "蘇生器",       price: 300,  effect: "戦闘不能から50%HPで復活" },
   { name: "回復スプレー", price: 260,  effect: "パーティ全員HP50%回復（対象選択なしで即使用）" },
-  { name: "同調デバイス Mk-I",   price: 250,   effect: "捕獲率+10%" },
-  { name: "同調デバイス Mk-II",  price: 550,   effect: "捕獲率+20%" },
-  { name: "同調デバイス Mk-III", price: 1700,  effect: "捕獲率+35%" },
-  { name: "同調デバイス Mk-IV",  price: 3400,  effect: "捕獲率+55%" },
-  { name: "同調デバイス Mk-V",   price: 9000,  effect: "捕獲率100%（確定）" }
+  { name: "解毒スプレー", price: 200,  effect: "パーティ全員の状態異常を全回復（対象選択なしで即使用）" },
+  { name: "同調デバイス Mk-I",   price: 150,   effect: "捕獲率+10%" },
+  { name: "同調デバイス Mk-II",  price: 350,   effect: "捕獲率+20%" },
+  { name: "同調デバイス Mk-III", price: 1000,  effect: "捕獲率+35%" },
+  { name: "同調デバイス Mk-IV",  price: 2000,  effect: "捕獲率+55%" },
+  { name: "同調デバイス Mk-V",   price: 5000,  effect: "捕獲率100%（確定）" }
 ];
 // 価格は暫定値。プレイテストで調整する
 ```
