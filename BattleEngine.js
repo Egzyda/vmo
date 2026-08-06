@@ -271,7 +271,8 @@ const BattleEngine = ({
                 continue;
             }
             if (moveData.effect === 'trick_room') {
-                if (distortion) { addLog("しかし 技は失敗した！"); } else { setDistortion(true); setDistortionTurns(5); addLog(`ディストーション空間が展開された！(5ターン)`); }
+                if (distortion) { setDistortion(false); setDistortionTurns(0); addLog("ディストーション空間が打ち消された！元に戻った！"); }
+                else { setDistortion(true); setDistortionTurns(5); addLog(`ディストーション空間が展開された！(5ターン)`); }
                 actor.isAttackingNow = false;
                 setMyState([...myStateRef.current]); setEnemyState([...enemyStateRef.current]);
                 continue;
