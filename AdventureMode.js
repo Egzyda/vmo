@@ -1562,7 +1562,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             const isFront = i < 2;
                             const isDragOver = drag && drag.overSource === 'party' && drag.overIndex === i && !(drag.source === 'party' && drag.index === i);
                             const isDragging = drag && drag.source === 'party' && drag.index === i;
-                            const rowClick = () => setDetailMon(W.toBattleMonster(m, bd));
+                            const rowClick = () => setDetailMon({ ...W.toBattleMonster(m, bd), knownMoves: m.knownMoves });
                             return (
                                 <div key={i} {...dragSlotProps('party', i)}
                                     className={`flex items-center gap-2 p-2 mb-1 rounded border transition ${isDragOver ? 'border-yellow-400 bg-yellow-950/30' : isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
@@ -1607,7 +1607,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                     const isDragging = drag && drag.source === 'box' && drag.index === i;
                                     return (
                                         <div key={i} {...dragSlotProps('box', i)}
-                                            onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
+                                            onClick={() => setDetailMon({ ...W.toBattleMonster(m, bd), knownMoves: m.knownMoves })}
                                             className={`flex items-center gap-2 p-1.5 mb-1 rounded border cursor-pointer transition ${isDragOver ? 'border-yellow-400 bg-yellow-950/30' : 'bg-slate-800/70 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
                                             <div className="w-7 h-7 bg-slate-900 rounded overflow-hidden flex-none">
                                                 {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
