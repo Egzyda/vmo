@@ -172,8 +172,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         // 研究員ボス（SPEC 4.16の応用）: フロアボスの代わりにエリート研究員編成を戦わせる
         if (floor.bossKind === 'researcher') return buildResearcher('researcher_elite');
 
-        const bd = dbMonsters.find(m => m.name === floor.boss);
-        if (!bd) return [];
+        // floor.boss は通常は種族名の文字列だが、bossDuo の場合は異なる2種族の配列
+        // （「同じ個体が2体」ではなく別々の個体2体を相手取らせる）
+        const bossNames = Array.isArray(floor.boss) ? floor.boss : [floor.boss];
         // フロアレベル×1.4倍。捕獲率が一番渋い(10%)ぶん、後で同じ種族が雑魚として
         // 出てきた時より確実に強い個体にして「捕まえる価値」を持たせる
         const lvl = floor.bossLevel || Math.round(floor.level * 1.4);
@@ -182,14 +183,16 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         // 戦闘の手応え自体はステータス側で足す（捕獲した個体には乗らない、戦闘専用の補正）。
         // チュートリアル(B30/B28, tier:'normal')・二体ボス・ラスボス(finalBossStats)は対象外
         const bossExtraMult = (floor.bossTier === 'elite' && !floor.bossDuo) ? 1.2 : 1;
-        const buildOne = () => {
+        const buildOne = (name) => {
+            const bd = dbMonsters.find(m => m.name === name);
+            if (!bd) return null;
             const inst = { id: bd.id, level: lvl, exp: 0, knownMoves: [], equippedMoves: [] };
             // floor.bossMoves があれば手動指定を優先（チュートリアルボスの調整用）
             inst.equippedMoves = floor.bossMoves && floor.bossMoves.length
                 ? floor.bossMoves.filter(m => dbMoves[m])
                 : W.getEliteMoves(bd, lvl, dbMoves, run.floorPos);
             // ボス単体を歪に強くしない方針（SPEC 4.10）のため、二体ボスは
-            // 各個体の補正をnormal(1.0倍)まで下げ、同時2体という戦術的な難しさで強さを出す
+            // 各個体の補正をnormal(1.0倍)まで下げ、異なる2個体を同時に相手取る戦術的な難しさで強さを出す
             return W.toBattleMonster(inst, bd, {
                 tier: floor.bossDuo ? 'normal' : (floor.bossTier || 'boss'), fullHeal: true,
                 extraMult: bossExtraMult,
@@ -199,7 +202,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 isWild: true
             });
         };
-        return floor.bossDuo ? [buildOne(), buildOne()] : [buildOne()];
+        return bossNames.map(buildOne).filter(Boolean);
     };
 
     // 改造研究員（SPEC 4.16）。雑魚研究員は野生と同格の1〜2体、
@@ -1354,7 +1357,6 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             <div className="font-bold text-base text-white mb-1">休憩する？</div>
                             <p className="text-xs text-slate-400 mb-4">
                                 手持ち全員のHPを30%回復する（戦闘不能のヴァーモンは回復しない）。<br />
-                                ボックスとの入れ替えは拠点でのみ可能（技の入れ替えはいつでもできる）。<br />
                                 このフロアで残り<span className="text-white font-bold">{run.restsLeft}回</span>のうち1回を消費する
                             </p>
                             <div className="flex gap-2">
@@ -1439,15 +1441,15 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                                 <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-700 text-red-300">
                                                     BOSS エリート研究員 編成部隊
                                                 </span>
-                                            ) : (() => {
-                                                const bossBd = dbMonsters.find(m => m.name === f.boss);
+                                            ) : (Array.isArray(f.boss) ? f.boss : [f.boss]).map(name => {
+                                                const bossBd = dbMonsters.find(m => m.name === name);
                                                 const bossOwned = bossBd && [...save.party, ...save.box].some(m => m.id === bossBd.id);
                                                 return (
-                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded border ${bossOwned ? 'border-slate-700 text-slate-500' : 'border-red-600 text-red-300'}`}>
-                                                        BOSS {f.bossDuo ? `${f.boss} ×2` : f.boss}{bossOwned ? '（捕獲済）' : ' ★'}
+                                                    <span key={name} className={`text-[9px] px-1.5 py-0.5 rounded border ${bossOwned ? 'border-slate-700 text-slate-500' : 'border-red-600 text-red-300'}`}>
+                                                        BOSS {name}{bossOwned ? '（捕獲済）' : ' ★'}
                                                     </span>
                                                 );
-                                            })()}
+                                            })}
                                         </div>
                                     </div>
                                 ) : (
