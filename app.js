@@ -408,12 +408,14 @@ const App = () => {
                         <div className="border-l-4 border-red-500 pl-3">
                             <h4 className="font-bold text-red-400 text-lg mb-1 font-teko tracking-wider">02. DAMAGE FORMULA</h4>
                             <div className="bg-slate-800 p-2 rounded border border-slate-700 font-mono text-[10px] text-gray-300 mb-2">
-                                Damage = floor( (ATK × Power ÷ DEF ÷ 2) × TypeMod × Random(0.9~1.0) )
+                                Damage = floor( (ATK × Power ÷ DEF ÷ 2) × TypeMod × Random(0.9~1.0) ) + 2
                             </div>
                             <ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
                                 <li><span className="text-white">ATK/DEF</span>: バフ補正後の数値を使用</li>
                                 <li><span className="text-white">TypeMod</span>: 属性相性倍率 (下記参照)</li>
                                 <li><span className="text-white">Random</span>: 最終ダメージは90%〜100%の間で変動</li>
+                                <li><span className="text-white">+2</span>: どの技にも乗る固定ボーナス。低火力技が0ダメージに丸め込まれるのを防ぐ</li>
+                                <li>「ハーフカット」等、相手の現在HPを直接削るタイプの技はこの式に従わない</li>
                             </ul>
                         </div>
 
@@ -482,6 +484,22 @@ const App = () => {
                                     <div className="text-gray-400">x2.0</div>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* 6. アドベンチャーモード */}
+                        <div className="border-l-4 border-amber-500 pl-3">
+                            <h4 className="font-bold text-amber-400 text-lg mb-1 font-teko tracking-wider">06. ADVENTURE MODE</h4>
+                            <p className="text-xs text-gray-300 mb-2">
+                                拠点「BASE」を起点に、B30から地上（B1）を目指してダンジョンを潜っていく1人用のやり込みモード。ここまでのルールがそのままバトルに使われる。
+                            </p>
+                            <ul className="text-xs text-gray-400 space-y-1.5 list-disc list-inside">
+                                <li><span className="text-white">進む選択肢</span>: 「安全に進む」（低リスク）／「索敵する」（強敵と遭遇しやすい）／「アイテムを探す」／「とにかく進む」（何でも起こりうる）の4択。選ぶ前に一言ヒントが出る</li>
+                                <li><span className="text-white">エリート</span>: 通常より強い個体・研究員との戦闘。倒すと経験値・所持金が多くもらえ、捕獲できれば高レベルな個体が手に入る（その分捕獲率は低め）</li>
+                                <li><span className="text-white">休憩</span>: HP30%回復。フロアごとに回数制限あり。戦闘不能のヴァーモンは休憩では回復しない（回復にはアイテムが必要）</li>
+                                <li><span className="text-white">捕獲</span>: 未所持のヴァーモンを倒すと捕獲画面が出る。同調デバイスを使うと成功率が上がる</li>
+                                <li><span className="text-white">拠点でできること</span>: パーティ編成、技の装備変更、ショップでの買い物、道具の使用（アイテムは探索中は使えない）</li>
+                                <li><span className="text-white">ゴール</span>: 各フロア最後の固定ボスを倒しながら潜り続け、B1でラスボス「ヴァーサス」を撃破すればクリア</li>
+                            </ul>
                         </div>
 
                     </div>
