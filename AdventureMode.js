@@ -25,6 +25,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [movePartyIndex, setMovePartyIndex] = useState(null); // 技入れ替え対象
     const [pendingLearn, setPendingLearn] = useState(null); // 装備満杯時の入れ替え選択中の技名
     const [retreatConfirm, setRetreatConfirm] = useState(false); // 撤退確認モーダル
+    const [restConfirm, setRestConfirm] = useState(false); // 休憩確認モーダル
     const [capturing, setCapturing] = useState(false); // 捕獲演出中フラグ
     const [itemTarget, setItemTarget] = useState(null); // 道具の使用対象選択中のアイテム名
     const [floorClearInfo, setFloorClearInfo] = useState(null); // フロアボス撃破時のクリア表示 { floorId, floorName, text, reward }
@@ -1241,7 +1242,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     )}
 
                     <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-                        <button onClick={doRest} disabled={run.restsLeft <= 0}
+                        <button onClick={() => setRestConfirm(true)} disabled={run.restsLeft <= 0}
                             className={`py-2 rounded text-[11px] ${run.restsLeft > 0 ? 'bg-slate-700' : 'bg-slate-900 text-slate-600'}`}>
                             休憩 {run.restsLeft}
                         </button>
@@ -1340,6 +1341,24 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 )}
 
                 {detailMon && <window.MonsterDetailModal monster={detailMon} showMoves dbMoves={dbMoves} onClose={() => setDetailMon(null)} />}
+                {restConfirm && (
+                    <div className="absolute inset-0 z-[150] bg-black/80 flex items-center justify-center p-6" onClick={() => setRestConfirm(false)}>
+                        <div className="w-full max-w-[300px] rounded-lg border-2 border-slate-600 bg-slate-900 p-5 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="text-3xl mb-2">🛌</div>
+                            <div className="font-bold text-base text-white mb-1">休憩する？</div>
+                            <p className="text-xs text-slate-400 mb-4">
+                                手持ち全員のHPを30%回復する（戦闘不能のヴァーモンは回復しない）。<br />
+                                技・パーティの入れ替えはできない。<br />
+                                このフロアで残り<span className="text-white font-bold">{run.restsLeft}回</span>のうち1回を消費する
+                            </p>
+                            <div className="flex gap-2">
+                                <button onClick={() => setRestConfirm(false)} className="flex-1 py-2.5 rounded bg-slate-700 text-sm font-bold">戻る</button>
+                                <button onClick={async () => { setRestConfirm(false); await doRest(); }}
+                                    className="flex-1 py-2.5 rounded bg-cyan-700 text-sm font-bold">休憩する</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {retreatConfirm && (
                     <div className="absolute inset-0 z-[150] bg-black/80 flex items-center justify-center p-6" onClick={() => setRetreatConfirm(false)}>
                         <div className="w-full max-w-[300px] rounded-lg border-2 border-slate-600 bg-slate-900 p-5 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
