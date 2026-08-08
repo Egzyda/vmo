@@ -474,9 +474,12 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     return (
                         <div key={mv} {...{ 'data-move-slot': 'true', 'data-move-party': partyIndex, 'data-move-index': mi }}
                             className={`w-full flex items-center gap-1 mb-0.5 rounded text-[11px] border transition ${isDragOver ? 'border-yellow-400 bg-yellow-950/30' : 'border-cyan-400 bg-cyan-900/30'} ${isDragging ? 'opacity-40' : ''}`}>
-                            <button onClick={() => toggleEquip(partyIndex, mv)} className={`flex-1 flex justify-between items-center ${rowCls} text-left`}>
-                                <span>{mv}</span>
-                                <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
+                            <button onClick={() => toggleEquip(partyIndex, mv)} className={`flex-1 flex flex-col ${rowCls} text-left`}>
+                                <div className="w-full flex justify-between items-center">
+                                    <span>{mv}</span>
+                                    <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
+                                </div>
+                                {d.desc && <div className="text-[9px] text-slate-400 mt-0.5">{d.desc}</div>}
                             </button>
                             <div {...moveDragHandleProps(partyIndex, mi)}
                                 className="w-6 h-6 flex-none flex items-center justify-center text-slate-400 text-xs cursor-grab active:cursor-grabbing select-none">⠿</div>
@@ -490,9 +493,12 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             const d = dbMoves[mv] || {};
                             return (
                                 <button key={mv} onClick={() => toggleEquip(partyIndex, mv)}
-                                    className={`w-full flex justify-between items-center ${rowCls} mb-0.5 rounded text-[11px] border border-slate-700 bg-slate-800/60 text-slate-400`}>
-                                    <span>{mv}</span>
-                                    <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
+                                    className={`w-full flex flex-col ${rowCls} mb-0.5 rounded text-[11px] border border-slate-700 bg-slate-800/60 text-slate-400 text-left`}>
+                                    <div className="w-full flex justify-between items-center">
+                                        <span>{mv}</span>
+                                        <span>{W.TYPE_NAMES[d.type]} P:{d.power || '-'}</span>
+                                    </div>
+                                    {d.desc && <div className="text-[9px] text-slate-500 mt-0.5">{d.desc}</div>}
                                 </button>
                             );
                         })}
@@ -1554,9 +1560,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                         <div key={i} {...dragSlotProps('box', i)}
                                             onClick={() => setBoxSwapPick(picked ? null : i)}
                                             className={`flex items-center gap-2 p-1.5 mb-1 rounded border cursor-pointer transition ${picked ? 'border-yellow-400 bg-yellow-950/30' : isDragOver ? 'border-yellow-400 bg-yellow-950/30' : 'bg-slate-800/70 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
-                                            <div className="w-7 h-7 bg-slate-900 rounded overflow-hidden flex-none">
+                                            <button onClick={(e) => { e.stopPropagation(); setDetailMon(W.toBattleMonster(m, bd)); }}
+                                                className="w-7 h-7 bg-slate-900 rounded overflow-hidden flex-none">
                                                 {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
-                                            </div>
+                                            </button>
                                             <div className="text-[11px] flex-1 min-w-0 truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
                                             {picked && <span className="text-[9px] text-yellow-300 flex-none">手持ちをタップ</span>}
                                             <div {...dragHandleProps('box', i)}
