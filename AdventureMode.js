@@ -177,6 +177,11 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         // フロアレベル×1.4倍。捕獲率が一番渋い(10%)ぶん、後で同じ種族が雑魚として
         // 出てきた時より確実に強い個体にして「捕まえる価値」を持たせる
         const lvl = floor.bossLevel || Math.round(floor.level * 1.4);
+        // 通常ボス(bossTier:'elite')だけ、レベルとは別にステータスへ追加倍率をかける。
+        // レベルをこれ以上上げると捕獲時の個体が破格に強くなりすぎるため、
+        // 戦闘の手応え自体はステータス側で足す（捕獲した個体には乗らない、戦闘専用の補正）。
+        // チュートリアル(B30/B28, tier:'normal')・二体ボス・ラスボス(finalBossStats)は対象外
+        const bossExtraMult = (floor.bossTier === 'elite' && !floor.bossDuo) ? 1.2 : 1;
         const buildOne = () => {
             const inst = { id: bd.id, level: lvl, exp: 0, knownMoves: [], equippedMoves: [] };
             // floor.bossMoves があれば手動指定を優先（チュートリアルボスの調整用）
@@ -187,6 +192,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             // 各個体の補正をnormal(1.0倍)まで下げ、同時2体という戦術的な難しさで強さを出す
             return W.toBattleMonster(inst, bd, {
                 tier: floor.bossDuo ? 'normal' : (floor.bossTier || 'boss'), fullHeal: true,
+                extraMult: bossExtraMult,
                 statOverride: floor.finalBossStats || null,
                 // ボスは訓練された編成ではないので、研究員のような「複数体を巻き込むほど得」
                 // という計算はさせない（AI判断だけ野生寄りにして、全体技の連打を防ぐ）
@@ -1221,7 +1227,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     {isBossNext ? (
                         <button onClick={() => enterBattle('boss')}
                             className="w-full py-5 rounded bg-red-900/70 border-2 border-red-500 font-teko text-2xl tracking-widest">
-                            BOSS: {floor.bossKind === 'researcher' ? 'エリート研究員 編成部隊' : floor.bossDuo ? `${floor.boss} ×2` : floor.boss}
+                            BOSS
                         </button>
                     ) : (
                         <div className="space-y-1.5">
@@ -1348,7 +1354,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             <div className="font-bold text-base text-white mb-1">休憩する？</div>
                             <p className="text-xs text-slate-400 mb-4">
                                 手持ち全員のHPを30%回復する（戦闘不能のヴァーモンは回復しない）。<br />
-                                技・パーティの入れ替えはできない。<br />
+                                ボックスとの入れ替えは拠点でのみ可能（技の入れ替えはいつでもできる）。<br />
                                 このフロアで残り<span className="text-white font-bold">{run.restsLeft}回</span>のうち1回を消費する
                             </p>
                             <div className="flex gap-2">
