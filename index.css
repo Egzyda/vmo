@@ -17,6 +17,19 @@ html, body {
     width: 100%;
 }
 
+/* 長押しでの文字選択・コピー吹き出し・タップ時のハイライトを無効化（アプリっぽい操作感にする） */
+* {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+input, textarea {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+}
+
 #root {
     width: 100%;
     height: 100%;
