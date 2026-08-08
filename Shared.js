@@ -306,7 +306,7 @@ const MonsterDetailModal = window.MonsterDetailModal = ({ monster, showMoves, db
 
                     {showMoves ? (
                         <div className="mt-2">
-                            <div className="text-[9px] text-slate-500 mb-1">MOVES</div>
+                            <div className="text-[9px] text-slate-500 mb-1">MOVES（装備中）</div>
                             {(monster.selectedMoves || []).map(mv => {
                                 const d = (dbMoves && dbMoves[mv]) || {};
                                 return (
@@ -316,6 +316,24 @@ const MonsterDetailModal = window.MonsterDetailModal = ({ monster, showMoves, db
                                     </div>
                                 );
                             })}
+                            {(() => {
+                                const unequipped = (monster.knownMoves || []).filter(mv => !(monster.selectedMoves || []).includes(mv));
+                                if (!unequipped.length) return null;
+                                return (
+                                    <>
+                                        <div className="text-[9px] text-slate-500 mt-2 mb-1">未装備（習得済み）</div>
+                                        {unequipped.map(mv => {
+                                            const d = (dbMoves && dbMoves[mv]) || {};
+                                            return (
+                                                <div key={mv} className="flex justify-between items-center text-[10px] py-0.5 border-b border-slate-800 text-slate-500">
+                                                    <span className="truncate">{mv}</span>
+                                                    <span className="flex-none ml-2">{TYPE_NAMES[d.type] || ''} P:{d.power || '-'}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </>
+                                );
+                            })()}
                         </div>
                     ) : (
                         <div className="mt-2 text-[10px] text-slate-500 text-center">相手の技構成は不明</div>
