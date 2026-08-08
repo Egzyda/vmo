@@ -30,6 +30,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [floorClearInfo, setFloorClearInfo] = useState(null); // フロアボス撃破時のクリア表示 { floorId, floorName, text, reward }
     const [lastReward, setLastReward] = useState(null); // 直前の戦闘報酬 { money, exp }（クリアモーダル表示用）
     const [shopBuy, setShopBuy] = useState(null); // ショップ購入確認 { item, qty }
+    const [boxSort, setBoxSort] = useState(null); // ボックスの並び替え基準 null|'hp'|'atk'|'def'|'spd'
     // ドラッグでの並び替え/入れ替え共通状態。
     // { source: 'party'|'box', index, moved, overSource, overIndex }
     const [drag, setDrag] = useState(null);
@@ -781,7 +782,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 <div className="bg-slate-900 border-t border-slate-600 rounded-t-lg max-h-[70%] flex flex-col safe-bottom"
                     onClick={e => e.stopPropagation()}>
                     <div className="flex-none flex justify-between items-center p-3 border-b border-slate-800">
-                        <span className="font-teko text-lg tracking-wider text-cyan-300">{itemTarget} を誰に使う？</span>
+                        <span className="font-teko text-lg tracking-wider text-cyan-300">{itemTarget} を誰に使う？ <span className="text-[10px] text-slate-500 font-zen">（残り{save.items[itemTarget] || 0}個）</span></span>
                         <button onClick={() => setItemTarget(null)} className="text-[11px] px-2.5 py-1 rounded border border-slate-600 bg-slate-800/80 text-slate-300 active:scale-95 transition">閉じる</button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3">
@@ -864,6 +865,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     <div className="text-center mb-3">
                         <div className="font-bold text-base text-white">{item.name}</div>
                         <div className="text-[10px] text-slate-400 mt-0.5">{item.effect}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">現在の所持数: {save.items[item.name] || 0}個</div>
                     </div>
                     <div className="flex items-center justify-center gap-3 mb-3">
                         <button onClick={() => setQty(qty - 1)} disabled={qty <= 1}
@@ -1196,6 +1198,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                     className={`relative flex-1 min-w-0 rounded border overflow-hidden text-left active:scale-95 transition ${isFront ? 'bg-cyan-950/50 border-cyan-600' : 'bg-slate-900/80 border-slate-700'}`}>
                                     {isFront && <div className="absolute top-0.5 left-0.5 z-10 text-[7px] px-1 rounded bg-cyan-600 text-cyan-50 leading-tight">前衛</div>}
                                     {m.pendingStatus === 'poison' && <div className="absolute top-0.5 right-0.5 z-10 text-[9px] leading-none" title="毒">💀</div>}
+                                    {m.pendingDebuff && <div className="absolute bottom-0.5 right-0.5 z-10 text-[7px] px-1 rounded bg-blue-900/90 text-blue-300 font-bold leading-tight" title={`次の戦闘、${m.pendingDebuff.toUpperCase()}がデバフ状態で開始`}>↓{m.pendingDebuff.toUpperCase()}</div>}
                                     <div className="w-full aspect-square bg-slate-950">
                                         {bd.img && <img src={bd.img} className={`w-full h-full object-contain ${m.currentHp <= 0 ? 'grayscale opacity-40' : ''}`} />}
                                     </div>
@@ -1588,8 +1591,18 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         {save.box.length > 0 && (
                             <>
                                 <div className="text-[10px] text-slate-400 mt-3 mb-1">ボックス（{save.box.length}）・タップで詳細、⠿を掴んでドラッグで手持ちと入れ替え</div>
-                                {save.box.map((m, i) => {
-                                    const bd = baseOf(m.id); if (!bd) return null;
+                                <div className="flex items-center gap-1 mb-1.5 flex-wrap">
+                                    <span className="text-[9px] text-slate-500">並び替え:</span>
+                                    {[['hp', 'HP', 'text-green-400'], ['atk', 'ATK', 'text-red-400'], ['def', 'DEF', 'text-blue-400'], ['spd', 'SPD', 'text-yellow-400']].map(([key, label, color]) => (
+                                        <button key={key} onClick={() => setBoxSort(boxSort === key ? null : key)}
+                                            className={`text-[9px] px-1.5 py-0.5 rounded border font-bold ${boxSort === key ? `${color} border-current bg-slate-800` : 'text-slate-500 border-slate-700'}`}>{label}</button>
+                                    ))}
+                                </div>
+                                {save.box.map((m, i) => ({ m, i, bd: baseOf(m.id) }))
+                                    .filter(x => x.bd)
+                                    .sort((a, b) => boxSort ? W.getEffectiveStats(b.m, b.bd)[boxSort] - W.getEffectiveStats(a.m, a.bd)[boxSort] : 0)
+                                    .map(({ m, i, bd }) => {
+                                    const st = W.getEffectiveStats(m, bd);
                                     const isDragOver = drag && drag.overSource === 'box' && drag.overIndex === i && !(drag.source === 'box' && drag.index === i);
                                     const isDragging = drag && drag.source === 'box' && drag.index === i;
                                     return (
@@ -1599,7 +1612,15 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                             <div className="w-7 h-7 bg-slate-900 rounded overflow-hidden flex-none">
                                                 {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
                                             </div>
-                                            <div className="text-[11px] flex-1 min-w-0 truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
+                                            <div className="text-[11px] flex-1 min-w-0">
+                                                <div className="truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
+                                                <div className="text-[9px] flex gap-1.5 flex-wrap">
+                                                    <span><span className="text-green-400 font-bold">HP</span> <span className="text-slate-300">{st.hp}</span></span>
+                                                    <span><span className="text-red-400 font-bold">ATK</span> <span className="text-slate-300">{st.atk}</span></span>
+                                                    <span><span className="text-blue-400 font-bold">DEF</span> <span className="text-slate-300">{st.def}</span></span>
+                                                    <span><span className="text-yellow-400 font-bold">SPD</span> <span className="text-slate-300">{st.spd}</span></span>
+                                                </div>
+                                            </div>
                                             <div {...dragHandleProps('box', i)}
                                                 className="w-5 h-7 flex-none flex items-center justify-center text-slate-500 text-sm cursor-grab active:cursor-grabbing select-none">⠿</div>
                                         </div>
@@ -1624,7 +1645,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 {baseTab === 'shop' && W.SHOP_ITEMS.map(item => (
                     <div key={item.name} className="flex items-center gap-2 p-2 mb-1 bg-slate-800 rounded border border-slate-700">
                         <div className="flex-1 min-w-0">
-                            <div className="text-xs font-bold truncate">{item.name}</div>
+                            <div className="text-xs font-bold truncate">{item.name} <span className="text-slate-500 text-[10px]">所持{save.items[item.name] || 0}</span></div>
                             <div className="text-[9px] text-slate-400">{item.effect}</div>
                         </div>
                         <div className="text-[10px] text-yellow-300 flex-none">{item.price}円</div>
