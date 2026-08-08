@@ -427,9 +427,10 @@ const BattleEngine = ({
                             if (moveData.effect === 'heal') {
                                 const percent = moveData.heal_percent || CONSTANTS.HEAL_PERCENT;
                                 const heal = Math.floor(targetMon.maxHp * percent);
-                                targetMon.currentHp = Math.min(targetMon.maxHp, targetMon.currentHp + heal);
+                                const actualHeal = Math.min(targetMon.maxHp - targetMon.currentHp, heal);
+                                targetMon.currentHp += actualHeal;
                                 targetMon.fx = { kind: 'heal' };
-                                addLog(`${targetMon.name}を回復`);
+                                addLog(`${targetMon.name}のHPが${actualHeal}回復した！`);
                             } else if (moveData.effect.startsWith('buff')) {
                                 const statMap = {'buff_atk':'atk', 'buff_def':'def', 'buff_spd':'spd'};
                                 const s = statMap[moveData.effect];
