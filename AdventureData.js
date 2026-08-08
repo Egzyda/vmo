@@ -294,11 +294,11 @@ const NODE_CHOICES = window.NODE_CHOICES = {
     },
     scout: {
         id: 'scout', label: '索敵する', icon: '🔍',
-        outcomes: { normal: 0.60, elite: 0.35, item: 0, trap: 0.05 }
+        outcomes: { normal: 0, elite: 0.95, item: 0, trap: 0.05 }
     },
     search: {
         id: 'search', label: 'アイテムを探す', icon: '🎒',
-        outcomes: { normal: 0.45, elite: 0, item: 0.35, trap: 0.20 }
+        outcomes: { normal: 0.30, elite: 0.10, item: 0.40, trap: 0.20 }
     },
     gamble: {
         id: 'gamble', label: 'とにかく進む', icon: '🎲',
@@ -318,12 +318,11 @@ const rollWeighted = window.rollWeighted = (weights, rng = Math.random) => {
     return entries.length ? entries[entries.length - 1][0] : null;
 };
 
-// 「安全に進む」だけはフロア位置に応じてわずかにエリート率が乗る（SPEC 4.8）。
-// 序盤（B30〜B23相当）は完全に安全（0%）。以降じわじわ上がり、5%で頭打ち。
+// 「安全に進む」だけはフロア位置に応じてエリート率が乗る（SPEC 4.8）。
+// チュートリアルのB30(position1)だけ完全に安全（0%）、B29以降は一律10%。
 const getSafeEliteChance = window.getSafeEliteChance = (floorPosition) => {
     const p = floorPosition || 1;
-    if (p <= 8) return 0;
-    return Math.min(0.05, (p - 8) * 0.005);
+    return p <= 1 ? 0 : 0.10;
 };
 
 const rollNodeOutcome = window.rollNodeOutcome = (choiceId, floorPosition, rng = Math.random) => {
@@ -486,13 +485,15 @@ const FLOORS = window.FLOORS = [
     { position: 29, id: 'B2', name: '地上直結エレベーター', battles: 7, rests: 5, level: 71, wildStatMult: 0.88, bossTier: 'elite',
       wild: ['リュミエット', 'オヌ・リン', 'ハリースト', 'ボルクマ'], boss: 'マグマス', bossDuo: true, baseRate: 0.48, rampPerStep: 0.1 },
 
-    // B1: 地上ゲート。雑魚戦なし、ラスボス:ヴァーサスのみの一本勝負。
+    // B1: 地上ゲート。ラスボス:ヴァーサスの前に「歴代ボスラッシュ」を挟む
+    // （使い回しでいい、との方針。旅の総決算として各ゾーンのボス格を再集結させる）。
     // 種族データ(id999)はHP9999の管理者イースターエッグ用なのでそのまま使わず、
     // finalBossStats で実際に使う実効ステータスを上書きする（AdventureMode.buildBoss参照）。
     // finalBossStats/bossMovesはシミュレーターで実測調整済み（自Lv73・4体で自Lv73未満は0%、
-    // 到達直後は僅かに残機ありの辛勝、Lv80/90/100と育てるほど余裕が生まれる曲線）
-    { position: 30, id: 'B1', name: '地上ゲート', battles: 0, rests: 0, level: 71, bossTier: 'final',
-      wild: [], boss: 'ヴァーサス', baseRate: 0, rampPerStep: 0,
+    // 到達直後は僅かに残機ありの辛勝、Lv80/90/100と育てるほど余裕が生まれる曲線）。
+    // 前哨戦(battles/wild)はヴァーサス本体の調整には影響しない別枠。
+    { position: 30, id: 'B1', name: '地上ゲート', battles: 4, rests: 1, level: 74, bossTier: 'final',
+      wild: ['シカバラス', 'レイコーン', 'ミレメント', 'ボルクマ'], boss: 'ヴァーサス', baseRate: 0.5, rampPerStep: 0.1,
       bossLevel: 80,
       bossMoves: ['カースドノヴァ', 'ラッシュ', 'プロテクション'],
       finalBossStats: { hp: 280, atk: 80, def: 80, spd: 110 } }

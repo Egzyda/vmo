@@ -151,15 +151,18 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         for (let i = 0; i < count; i++) picks.push(pool[Math.floor(Math.random() * pool.length)]);
 
         return picks.map(bd => {
-            const lvl = floor.level + (tier === 'boss' ? 2 : tier === 'elite' ? 1 : 0);
+            // 強化個体(elite)はステータス倍率ではなくレベルそのものを引き上げる方式。
+            // 捕獲すれば実際に高レベルな個体が手に入り、経験値・所持金も多くもらえる
+            const lvl = tier === 'elite' ? Math.round(floor.level * 1.2) : floor.level;
             const inst = { id: bd.id, level: lvl, exp: 0, knownMoves: [], equippedMoves: [] };
             inst.equippedMoves = (tier === 'normal')
                 ? W.getWildMoveSet(bd, run.floorPos, dbMoves)
                 : W.getEliteMoves(bd, lvl, dbMoves, run.floorPos);
             // 序盤フロアの野生は弱体個体（floor.wildStatMult）
             const extra = (tier === 'normal' && floor.wildStatMult) ? floor.wildStatMult : 1;
-            // 野生は「強化個体(elite)」でも訓練された存在ではないので、AI判断は常に野生扱い
-            return W.toBattleMonster(inst, bd, { tier, fullHeal: true, extraMult: extra, isWild: true });
+            // 野生は「強化個体(elite)」でも訓練された存在ではないので、AI判断は常に野生扱い。
+            // 強さの差はレベルだけで表現するので、ステータス倍率(ENEMY_STAT_MULTIPLIERS)は乗せない
+            return W.toBattleMonster(inst, bd, { tier: 'normal', fullHeal: true, extraMult: extra, isWild: true });
         });
     };
 
@@ -169,8 +172,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
 
         const bd = dbMonsters.find(m => m.name === floor.boss);
         if (!bd) return [];
-        // 既定は敵レベル+1。+2だと手持ちが揃わない序盤でボス戦だけ突出して難しくなる
-        const lvl = floor.bossLevel || (floor.level + 1);
+        // フロアレベル×1.4倍。捕獲率が一番渋い(10%)ぶん、後で同じ種族が雑魚として
+        // 出てきた時より確実に強い個体にして「捕まえる価値」を持たせる
+        const lvl = floor.bossLevel || Math.round(floor.level * 1.4);
         const buildOne = () => {
             const inst = { id: bd.id, level: lvl, exp: 0, knownMoves: [], equippedMoves: [] };
             // floor.bossMoves があれば手動指定を優先（チュートリアルボスの調整用）
@@ -181,7 +185,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             // 各個体の補正をnormal(1.0倍)まで下げ、同時2体という戦術的な難しさで強さを出す
             return W.toBattleMonster(inst, bd, {
                 tier: floor.bossDuo ? 'normal' : (floor.bossTier || 'boss'), fullHeal: true,
-                statOverride: floor.finalBossStats || null
+                statOverride: floor.finalBossStats || null,
+                // ボスは訓練された編成ではないので、研究員のような「複数体を巻き込むほど得」
+                // という計算はさせない（AI判断だけ野生寄りにして、全体技の連打を防ぐ）
+                isWild: true
             });
         };
         return floor.bossDuo ? [buildOne(), buildOne()] : [buildOne()];
@@ -193,7 +200,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         if (kind === 'researcher_weak') {
             const pool = floor.wild.map(n => dbMonsters.find(m => m.name === n)).filter(Boolean);
             if (!pool.length) return [];
-            const count = W.rollEnemyCount(floor, run.step);
+            // 野生の二体遭遇と見分けがつかなくなるため、雑魚研究員は3体固定
+            // （エリート研究員の4体編成と対になる中間の格にする）
+            const count = Math.min(3, pool.length);
             const picks = [];
             for (let i = 0; i < count; i++) picks.push(pool[Math.floor(Math.random() * pool.length)]);
             return picks.map(bd => {
@@ -222,10 +231,14 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         }).filter(Boolean);
 
     const enterBattle = (tier, researcherKind) => {
-        const isResearcher = researcherKind && researcherKind !== 'wild';
-        const enemyParty = tier === 'boss' ? buildBoss() : isResearcher ? buildResearcher(researcherKind) : buildEnemy(tier);
+        // B3のようなbossKind:'researcher'は「boss」ボタンから来る（researcherKind未指定）ので
+        // ここでも研究員扱いだと分かるようにしておく（捕獲対象外・撃破報酬アイテムの判定に使う）
+        const isBossResearcher = tier === 'boss' && floor.bossKind === 'researcher';
+        const effectiveKind = isBossResearcher ? 'researcher_elite' : researcherKind;
+        const isResearcher = !!(effectiveKind && effectiveKind !== 'wild');
+        const enemyParty = tier === 'boss' ? buildBoss() : isResearcher ? buildResearcher(effectiveKind) : buildEnemy(tier);
         if (!enemyParty.length) { flash('敵の生成に失敗した'); return; }
-        setBattle({ enemyParty, tier, isBoss: tier === 'boss', isResearcher });
+        setBattle({ enemyParty, tier, isBoss: tier === 'boss', isResearcher, researcherKind: isResearcher ? effectiveKind : null });
         setView('battle');
     };
 
@@ -587,12 +600,26 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             enemies.forEach(e => { next.seenIds = [...new Set([...next.seenIds, e.id])]; });
 
             const foeNames = [...new Set(enemies.map(e => e.name))].join('・');
-            addLog(`${foeNames} を撃破（+${money}円 / +${totalExp}exp）`, 'good');
+            let rewardLog = `${foeNames} を撃破（+${money}円 / +${totalExp}exp）`;
+
+            // 研究員は訓練された相手なので撃破時にランダムでアイテムを1つドロップする
+            // （雑魚研究員は安価な消耗品、エリート研究員はやや高価な品から）
+            if (battle.isResearcher) {
+                const dropNames = battle.researcherKind === 'researcher_elite'
+                    ? ['回復スプレー', '解毒スプレー', '同調デバイス Mk-II', '同調デバイス Mk-III']
+                    : ['薬草', '回復薬', 'アドレナリン', '万能薬', '蘇生器', '同調デバイス Mk-I'];
+                const dropName = dropNames[Math.floor(Math.random() * dropNames.length)];
+                next = W.addItem(next, dropName);
+                rewardLog += ` / ${dropName}を入手`;
+            }
+
+            addLog(rewardLog, 'good');
             await persist(next);
 
-            // 未所持の相手だけ捕獲画面に回す（所持済みの周回でタップを増やさない）
+            // 未所持の相手だけ捕獲画面に回す（所持済みの周回でタップを増やさない）。
+            // 研究員は人間なので捕獲対象外
             const ownedIds = [...next.party, ...next.box].map(m => m.id);
-            const targets = enemies.filter(e => !ownedIds.includes(e.id))
+            const targets = battle.isResearcher ? [] : enemies.filter(e => !ownedIds.includes(e.id))
                 .filter((e, i, arr) => arr.findIndex(x => x.id === e.id) === i);
 
             setLearnQueue(queue);
