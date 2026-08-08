@@ -139,9 +139,15 @@ const MonsterCard = window.MonsterCard = ({ monster, isActive, isAttacking, isTa
     const Header = () => (
         <div className="flex justify-between items-center mb-1 w-full overflow-hidden">
             <span className={`font-bold text-[10px] tracking-tighter whitespace-nowrap overflow-visible ${typeColorClass.split(' ')[0]}`}>{monster.name}</span>
-            <span className={`ml-1 px-1 rounded text-[9px] text-white font-bold ${typeBgClass}`}>
-                {TYPE_NAMES[monster.type] || monster.type}
-            </span>
+            <div className="flex items-center gap-1 flex-none ml-1">
+                {/* monster.level はアドベンチャーモードのバトル個体にしか付かない
+                    （PvP/対戦シミュレーションのモンスターにはlevelフィールド自体が無い）ので、
+                    ここだけで自然にモード切り分けできる */}
+                {monster.level ? <span className="text-[9px] text-slate-300 font-bold whitespace-nowrap">Lv{monster.level}</span> : null}
+                <span className={`px-1 rounded text-[9px] text-white font-bold ${typeBgClass}`}>
+                    {TYPE_NAMES[monster.type] || monster.type}
+                </span>
+            </div>
         </div>
     );
 
