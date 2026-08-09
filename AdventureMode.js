@@ -588,15 +588,20 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             const avgEnemyLv = Math.round(enemies.reduce((s, e) => s + (e.level || 1), 0) / enemies.length);
             const money = enemies.reduce((s, e) => s + W.getDropMoney(e.level || 1), 0);
             next.money += money;
-            setLastReward({ money, exp: totalExp });
 
             const queue = [];
+            const levelUps = [];
             next.party = next.party.map((inst, idx) => {
                 const gained = W.getExp(totalExp, inst.level, avgEnemyLv);
                 const r = W.grantExp(inst, gained);
                 if (r.pendingLearns > 0) queue.push({ partyIndex: idx, count: r.pendingLearns });
+                if (r.leveledUp) {
+                    const bd = baseOf(inst.id);
+                    levelUps.push({ name: bd ? bd.name : '？', from: r.fromLevel, to: r.toLevel });
+                }
                 return r.instance;
             });
+            setLastReward({ money, exp: totalExp, levelUps });
 
             // 図鑑登録
             enemies.forEach(e => { next.seenIds = [...new Set([...next.seenIds, e.id])]; });
@@ -616,6 +621,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             }
 
             addLog(rewardLog, 'good');
+            // レベルアップしたヴァーモンをログに残す（一覧を流し見るだけで気づける）
+            levelUps.forEach(lv => addLog(`${lv.name} レベルアップ！ Lv${lv.from}→${lv.to}`, 'good'));
             await persist(next);
 
             // 未所持の相手だけ捕獲画面に回す（所持済みの周回でタップを増やさない）。
@@ -832,6 +839,13 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         <div className="flex justify-center gap-4 text-xs mb-3">
                             <span className="text-yellow-300">+{floorClearInfo.reward.money}円</span>
                             <span className="text-cyan-300">+{floorClearInfo.reward.exp}exp</span>
+                        </div>
+                    )}
+                    {floorClearInfo.reward && floorClearInfo.reward.levelUps && floorClearInfo.reward.levelUps.length > 0 && (
+                        <div className="text-[11px] text-green-300 bg-green-950/40 border border-green-800 rounded px-2 py-1.5 mb-3 space-y-0.5">
+                            {floorClearInfo.reward.levelUps.map((lv, i) => (
+                                <div key={i}>🆙 {lv.name} Lv{lv.from}→<span className="font-bold">{lv.to}</span></div>
+                            ))}
                         </div>
                     )}
                     {floorClearInfo.nextFloor && (
