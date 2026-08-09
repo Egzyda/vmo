@@ -32,6 +32,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [lastReward, setLastReward] = useState(null); // 直前の戦闘報酬 { money, exp }（クリアモーダル表示用）
     const [shopBuy, setShopBuy] = useState(null); // ショップ購入確認 { item, qty }
     const [boxSort, setBoxSort] = useState(null); // ボックスの並び替え基準 null|'hp'|'atk'|'def'|'spd'
+    const [boxFilter, setBoxFilter] = useState(null); // ボックスの属性絞り込み null|'fire'|'water'|'grass'|'light'|'dark'|'normal'
     // ドラッグでの並び替え/入れ替え共通状態。
     // { source: 'party'|'box', index, moved, overSource, overIndex }
     const [drag, setDrag] = useState(null);
@@ -1582,8 +1583,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             <div className="flex-1 overflow-y-auto p-3">
                 {baseTab === 'party' && (
                     <>
-                        {/* 手持ちをスクロール領域の上部に固定。ボックスが増えて下の方の項目をドラッグする時、
-                            手持ちが画面外にスクロールして消えてしまい掴めなくなるのを防ぐ */}
+                        {/* 手持ち・絞り込み・ソートをスクロール領域の上部に固定。ボックスが増えて
+                            下の方の項目をドラッグする時、掴む先が画面外に消えてしまうのを防ぐ */}
                         <div className="sticky top-0 z-10 bg-slate-900 -mx-3 px-3 pb-2 mb-1 border-b border-slate-800">
                         <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）・先頭2体が出撃時の前衛になる・⠿を掴んでドラッグで並び替え・ボックスとの入れ替えもできる</div>
                         {save.party.map((m, i) => {
@@ -1595,44 +1596,57 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             const rowClick = () => setDetailMon({ ...W.toBattleMonster(m, bd), knownMoves: m.knownMoves });
                             return (
                                 <div key={i} {...dragSlotProps('party', i)}
-                                    className={`flex items-center gap-2 p-2 mb-1 rounded border transition ${isDragOver ? 'border-yellow-400 bg-yellow-950/30' : isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
-                                    <div className="flex flex-col gap-0.5 flex-none">
-                                        <button onClick={() => moveParty(i, -1)} disabled={i === 0}
-                                            className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === 0 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▲</button>
-                                        <button onClick={() => moveParty(i, 1)} disabled={i === save.party.length - 1}
-                                            className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === save.party.length - 1 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▼</button>
-                                    </div>
+                                    className={`flex items-center gap-2 p-1.5 mb-1 rounded border transition ${isDragOver ? 'border-yellow-400 bg-yellow-950/30' : isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
                                     <button onClick={rowClick}
-                                        className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none relative">
+                                        className="w-7 h-7 bg-slate-900 rounded overflow-hidden flex-none relative">
                                         {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
                                     </button>
-                                    <div className="flex-1 min-w-0" onClick={rowClick}>
-                                        <div className="text-xs font-bold truncate flex items-center gap-1">
+                                    <div className="text-[11px] flex-1 min-w-0" onClick={rowClick}>
+                                        <div className="truncate flex items-center gap-1">
                                             {bd.name} <span className="text-slate-500">Lv{m.level}</span>
+                                            <span className={`px-1 rounded text-[8px] text-white font-bold flex-none ${W.TYPE_BG[bd.type]}`}>{W.TYPE_NAMES[bd.type]}</span>
                                             {isFront && <span className="text-[8px] px-1 rounded bg-cyan-700 text-cyan-100 flex-none">前衛</span>}
                                         </div>
-                                        <div className="text-[9px] text-slate-400">HP{m.currentHp}/{st.hp} A{st.atk} D{st.def} S{st.spd}</div>
+                                        <div className="text-[9px] flex gap-1.5 flex-wrap">
+                                            <span><span className="text-green-400 font-bold">HP</span> <span className="text-slate-300">{m.currentHp}/{st.hp}</span></span>
+                                            <span><span className="text-red-400 font-bold">ATK</span> <span className="text-slate-300">{st.atk}</span></span>
+                                            <span><span className="text-blue-400 font-bold">DEF</span> <span className="text-slate-300">{st.def}</span></span>
+                                            <span><span className="text-yellow-400 font-bold">SPD</span> <span className="text-slate-300">{st.spd}</span></span>
+                                        </div>
                                     </div>
                                     <div {...dragHandleProps('party', i)}
                                         className="w-5 h-8 flex-none flex items-center justify-center text-slate-500 text-sm cursor-grab active:cursor-grabbing select-none">⠿</div>
                                 </div>
                             );
                         })}
-                        </div>
                         {save.box.length > 0 && (
                             <>
-                                <div className="text-[10px] text-slate-400 mt-3 mb-1">ボックス（{save.box.length}）・タップで詳細、⠿を掴んでドラッグで手持ちと入れ替え</div>
-                                <div className="flex items-center gap-1 mb-1.5 flex-wrap">
+                                <div className="flex items-center gap-1 mt-2 mb-1 flex-wrap">
+                                    <span className="text-[9px] text-slate-500">属性:</span>
+                                    {['fire', 'water', 'grass', 'light', 'dark', 'normal'].map(t => (
+                                        <button key={t} onClick={() => setBoxFilter(boxFilter === t ? null : t)}
+                                            className={`text-[9px] px-1.5 py-0.5 rounded border font-bold text-white ${boxFilter === t ? `${W.TYPE_BG[t]} border-white` : 'bg-slate-800 border-slate-700 opacity-50'}`}>{W.TYPE_NAMES[t]}</button>
+                                    ))}
+                                </div>
+                                <div className="flex items-center gap-1 mb-1 flex-wrap">
                                     <span className="text-[9px] text-slate-500">並び替え:</span>
                                     {[['hp', 'HP', 'text-green-400'], ['atk', 'ATK', 'text-red-400'], ['def', 'DEF', 'text-blue-400'], ['spd', 'SPD', 'text-yellow-400']].map(([key, label, color]) => (
                                         <button key={key} onClick={() => setBoxSort(boxSort === key ? null : key)}
                                             className={`text-[9px] px-1.5 py-0.5 rounded border font-bold ${boxSort === key ? `${color} border-current bg-slate-800` : 'text-slate-500 border-slate-700'}`}>{label}</button>
                                     ))}
                                 </div>
-                                {save.box.map((m, i) => ({ m, i, bd: baseOf(m.id) }))
-                                    .filter(x => x.bd)
-                                    .sort((a, b) => boxSort ? W.getEffectiveStats(b.m, b.bd)[boxSort] - W.getEffectiveStats(a.m, a.bd)[boxSort] : 0)
-                                    .map(({ m, i, bd }) => {
+                            </>
+                        )}
+                        </div>
+                        {save.box.length > 0 && (() => {
+                            const boxView = save.box.map((m, i) => ({ m, i, bd: baseOf(m.id) }))
+                                .filter(x => x.bd && (!boxFilter || x.bd.type === boxFilter))
+                                .sort((a, b) => boxSort ? W.getEffectiveStats(b.m, b.bd)[boxSort] - W.getEffectiveStats(a.m, a.bd)[boxSort] : 0);
+                            return (
+                            <>
+                                <div className="text-[10px] text-slate-400 mt-1 mb-1">ボックス（{save.box.length}）・タップで詳細、⠿を掴んでドラッグで手持ちと入れ替え</div>
+                                {boxView.length === 0 && <div className="text-[10px] text-slate-600">この属性の所持なし</div>}
+                                {boxView.map(({ m, i, bd }) => {
                                     const st = W.getEffectiveStats(m, bd);
                                     const isDragOver = drag && drag.overSource === 'box' && drag.overIndex === i && !(drag.source === 'box' && drag.index === i);
                                     const isDragging = drag && drag.source === 'box' && drag.index === i;
@@ -1644,7 +1658,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                                 {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
                                             </div>
                                             <div className="text-[11px] flex-1 min-w-0">
-                                                <div className="truncate">{bd.name} <span className="text-slate-500">Lv{m.level}</span></div>
+                                                <div className="truncate flex items-center gap-1">
+                                                    {bd.name} <span className="text-slate-500">Lv{m.level}</span>
+                                                    <span className={`px-1 rounded text-[8px] text-white font-bold flex-none ${W.TYPE_BG[bd.type]}`}>{W.TYPE_NAMES[bd.type]}</span>
+                                                </div>
                                                 <div className="text-[9px] flex gap-1.5 flex-wrap">
                                                     <span><span className="text-green-400 font-bold">HP</span> <span className="text-slate-300">{st.hp}</span></span>
                                                     <span><span className="text-red-400 font-bold">ATK</span> <span className="text-slate-300">{st.atk}</span></span>
@@ -1658,7 +1675,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                     );
                                 })}
                             </>
-                        )}
+                            );
+                        })()}
                     </>
                 )}
 
