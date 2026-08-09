@@ -1582,6 +1582,9 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
             <div className="flex-1 overflow-y-auto p-3">
                 {baseTab === 'party' && (
                     <>
+                        {/* 手持ちをスクロール領域の上部に固定。ボックスが増えて下の方の項目をドラッグする時、
+                            手持ちが画面外にスクロールして消えてしまい掴めなくなるのを防ぐ */}
+                        <div className="sticky top-0 z-10 bg-slate-900 -mx-3 px-3 pb-2 mb-1 border-b border-slate-800">
                         <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）・先頭2体が出撃時の前衛になる・⠿を掴んでドラッグで並び替え・ボックスとの入れ替えもできる</div>
                         {save.party.map((m, i) => {
                             const bd = baseOf(m.id); if (!bd) return null;
@@ -1615,6 +1618,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                 </div>
                             );
                         })}
+                        </div>
                         {save.box.length > 0 && (
                             <>
                                 <div className="text-[10px] text-slate-400 mt-3 mb-1">ボックス（{save.box.length}）・タップで詳細、⠿を掴んでドラッグで手持ちと入れ替え</div>
