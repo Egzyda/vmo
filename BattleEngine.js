@@ -842,10 +842,13 @@ const BattleEngine = ({
                                         const tBg = TYPE_BG[moveData.type] || TYPE_BG['normal'];
                                         const tName = TYPE_NAMES[moveData.type] || '?';
                                         return (
-                                        <button key={m} onClick={() => {
+                                        <button key={m} onClick={(e) => {
+                                            // タップ後に:focus/:hoverが残ると、次のターンも同じ技（DOMノードがkey={m}で
+                                            // 再利用される）が選択済みのように見えてしまう端末があるため明示的に外す
+                                            e.currentTarget.blur();
                                             if(['all_enemies','self','field','all'].includes(moveData.target)) handleCommandSelect('move', { moveName: m, targetSlot: null });
                                             else setSelectingMove(m);
-                                        }} className="flex flex-col justify-center px-2 py-2 bg-slate-900 border border-slate-700 rounded text-left hover:bg-slate-800 active:bg-slate-700 transition-colors">
+                                        }} className="flex flex-col justify-center px-2 py-2 bg-slate-900 border border-slate-700 rounded text-left active:bg-slate-700 transition-colors focus:outline-none">
                                             <div className="flex justify-between w-full text-sm font-bold text-slate-300 mb-0.5"><span className="text-white">{m}</span><div className="flex gap-1"><span className={`text-[9px] px-1 py-0.5 rounded text-white font-bold ${tBg}`}>{tName}</span><span className="text-[9px] bg-black/50 px-1 rounded text-slate-400">P:{moveData.power||'-'}</span></div></div>
                                             <div className="text-[10px] text-slate-400 font-bold truncate">{moveData.desc}</div>
                                         </button>
