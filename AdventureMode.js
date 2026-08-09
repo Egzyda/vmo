@@ -123,7 +123,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         if (!floor) return;
         const alive = save.party.filter(m => m.currentHp > 0);
         if (alive.length === 0) { flash('戦えるヴァーモンがいない。拠点で回復しよう'); return; }
-        const nextRun = { floorPos, step: 0, restsLeft: floor.rests, hints: rollHints(floorPos), log: [] };
+        const nextRun = { floorPos, step: 0, restsLeft: floor.rests, log: [] };
         setRun(nextRun);
         setPanel(null);
         setEvent(null);
@@ -134,13 +134,6 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     // フロア内で起きたことをクリアまで残す（何をしてきたか見返せるように）
     const addLog = (text, tone = 'info') => {
         setRun(r => r ? { ...r, log: [...(r.log || []), { text, tone }] } : r);
-    };
-
-    // 4択それぞれの結果を先に確定し、ヒントだけ提示する（SPEC 4.8）
-    const rollHints = (floorPos) => {
-        const h = {};
-        Object.keys(W.NODE_CHOICES).forEach(id => { h[id] = W.rollNodeOutcome(id, floorPos); });
-        return h;
     };
 
     const floor = run ? W.getFloorByPosition(run.floorPos) : null;
@@ -278,7 +271,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     };
 
     const chooseNode = async (choiceId) => {
-        const outcome = run.hints[choiceId];
+        const outcome = W.rollNodeOutcome(choiceId, run.floorPos);
         const flavor = W.pickFlavor(outcome);
         if (outcome === 'normal' || outcome === 'elite') {
             const kind = outcome === 'elite' ? W.getEliteEncounterKind(run.floorPos) : 'wild';
@@ -315,10 +308,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     };
 
     // baseSave: 呼び出し元が直前にpersistした最新のsave（省略時はclosureのsaveを使う）。
-    // runPatch: step増加・ヒント再抽選と一緒に適用したいrunの差分（罠の休憩消費など）
+    // runPatch: step増加と一緒に適用したいrunの差分（罠の休憩消費など）
     const advanceStep = async (baseSave, runPatch) => {
         if (!run) return;
-        const nextRun = { ...run, ...(runPatch || {}), step: run.step + 1, hints: rollHints(run.floorPos) };
+        const nextRun = { ...run, ...(runPatch || {}), step: run.step + 1 };
         setRun(nextRun);
         await persist({ ...(baseSave || save), dungeonRun: nextRun });
     };
@@ -1245,15 +1238,16 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     ) : (
                         <div className="space-y-1.5">
                             {Object.values(W.NODE_CHOICES).map(c => {
-                                const hint = W.OUTCOME_HINTS[run.hints[c.id]];
-                                const tone = hint.tone === 'danger' ? 'text-red-400' :
-                                    hint.tone === 'good' ? 'text-green-400' :
-                                        hint.tone === 'warn' ? 'text-yellow-400' : 'text-slate-400';
+                                // c.desc/c.tone は固定の説明文（何が起こりやすいかの傾向）。
+                                // 個別の抽選結果は選ぶまで分からない
+                                const tone = c.tone === 'danger' ? 'text-red-400' :
+                                    c.tone === 'good' ? 'text-green-400' :
+                                        c.tone === 'warn' ? 'text-yellow-400' : 'text-slate-400';
                                 return (
                                     <button key={c.id} onClick={() => chooseNode(c.id)}
-                                        className="w-full flex justify-between items-center px-3 py-2.5 rounded bg-slate-800/90 border border-slate-700 hover:border-cyan-400">
+                                        className="w-full flex flex-col items-start px-3 py-2.5 rounded bg-slate-800/90 border border-slate-700 hover:border-cyan-400 text-left">
                                         <span className="font-bold text-sm">{c.icon} {c.label}</span>
-                                        <span className={`text-[11px] ${tone}`}>（{hint.text}）</span>
+                                        <span className={`text-[10px] mt-0.5 ${tone}`}>{c.desc}</span>
                                     </button>
                                 );
                             })}

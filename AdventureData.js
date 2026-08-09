@@ -287,21 +287,28 @@ const getEliteEncounterKind = window.getEliteEncounterKind = (floorPosition, rng
 // 5. 探索ノード（SPEC 4.8）
 // ============================================================
 // 各選択肢の抽選テーブル。合計は必ず 1.0
+// desc/tone は選択前に見せる固定の説明文（何が起こりやすいかの傾向であって、
+// 個別の抽選結果は含まない。以前は毎回の抽選結果に1:1対応するヒント文言を
+// 表示しており、実質的に結果を確定でバラしてしまっていたため撤廃した）
 const NODE_CHOICES = window.NODE_CHOICES = {
     safe: {
         id: 'safe', label: '安全に進む', icon: '⚔️',
+        desc: '通常戦闘が中心・低リスク', tone: 'neutral',
         outcomes: { normal: 1.00, elite: 0, item: 0, trap: 0 }
     },
     scout: {
         id: 'scout', label: '索敵する', icon: '🔍',
+        desc: 'エリートと高確率で遭遇', tone: 'danger',
         outcomes: { normal: 0, elite: 0.95, item: 0, trap: 0.05 }
     },
     search: {
         id: 'search', label: 'アイテムを探す', icon: '🎒',
+        desc: '戦闘を避けてアイテムを入手できる可能性、罠にも注意', tone: 'good',
         outcomes: { normal: 0.30, elite: 0.10, item: 0.40, trap: 0.20 }
     },
     gamble: {
         id: 'gamble', label: 'とにかく進む', icon: '🎲',
+        desc: '何が起こるか分からない', tone: 'warn',
         outcomes: { normal: 0.30, elite: 0.20, item: 0.25, trap: 0.25 }
     }
 };
@@ -333,14 +340,6 @@ const rollNodeOutcome = window.rollNodeOutcome = (choiceId, floorPosition, rng =
         return rollWeighted({ ...choice.outcomes, elite: eliteChance, normal: choice.outcomes.normal - eliteChance }, rng);
     }
     return rollWeighted(choice.outcomes, rng);
-};
-
-// 選択前に見せるヒント（結果は裏で確定済み、傾向のみ提示）
-const OUTCOME_HINTS = window.OUTCOME_HINTS = {
-    normal: { text: '静かだ', tone: 'neutral' },
-    elite: { text: '強い気配', tone: 'danger' },
-    item: { text: '何かの匂い', tone: 'good' },
-    trap: { text: '嫌な予感', tone: 'warn' }
 };
 
 // ============================================================
