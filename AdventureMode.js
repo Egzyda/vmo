@@ -385,16 +385,6 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
         await persist({ ...save, party: save.party.map((x, j) => j === partyIndex ? updated : x) });
     };
 
-    // 手持ちの並び替え。先頭2体がそのまま出撃時の前衛（フィールド）になるため、
-    // 誰を前衛にするかを並び替えで直接コントロールできるようにする
-    const moveParty = async (i, dir) => {
-        const j = i + dir;
-        if (j < 0 || j >= save.party.length) return;
-        const party = [...save.party];
-        [party[i], party[j]] = [party[j], party[i]];
-        await persist({ ...save, party });
-    };
-
     // ---------- ドラッグ並べ替え／入れ替え（パーティ内・パーティ⇔ボックス共通） ----------
     // 専用のつまみ(ドラッグハンドル)からのみ開始するので、詳細を開くタップ操作とは競合しない。
     // Pointer Events でマウス・タッチ両対応。実際のドロップ先は指/カーソル直下の
@@ -1007,7 +997,12 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     // ---- 戦闘 ----
     if (view === 'battle' && battle) {
         const mine = myBattleParty();
-        const myField = mine.length > 1 ? [0, 1] : [0, -1];
+        // 戦闘不能のヴァーモンを先頭に置いたまま出撃すると、戦闘不能のまま1ターン
+        // 場に居座ってしまう（交代アナウンスが1ターン遅れる）ので、生存個体を優先して
+        // 初期の出撃枠に入れる
+        const aliveIdx = mine.map((m, i) => i).filter(i => mine[i].currentHp > 0);
+        const slots = mine.length > 1 ? 2 : 1;
+        const myField = [aliveIdx[0] ?? -1, slots > 1 ? (aliveIdx[1] ?? -1) : -1];
         const enField = battle.enemyParty.length > 1 ? [0, 1] : [0, -1];
         return (
             <window.BattleEngine
@@ -1315,12 +1310,6 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                         <div key={i} {...dragSlotProps('party', i)}
                                             className={`mb-2 rounded border transition ${isDragOver ? 'border-yellow-400 bg-yellow-950/30' : isFront ? 'bg-cyan-950/40 border-cyan-700' : 'bg-slate-800 border-slate-700'} ${isDragging ? 'opacity-40' : ''}`}>
                                             <div className="flex items-center gap-2 p-2">
-                                                <div className="flex flex-col gap-0.5 flex-none">
-                                                    <button onClick={() => moveParty(i, -1)} disabled={i === 0}
-                                                        className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === 0 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▲</button>
-                                                    <button onClick={() => moveParty(i, 1)} disabled={i === save.party.length - 1}
-                                                        className={`w-5 h-5 rounded text-[10px] flex items-center justify-center ${i === save.party.length - 1 ? 'bg-slate-900 text-slate-700' : 'bg-slate-700 text-slate-200'}`}>▼</button>
-                                                </div>
                                                 <button onClick={() => setDetailMon(W.toBattleMonster(m, bd))}
                                                     className="w-10 h-10 bg-slate-900 rounded overflow-hidden flex-none">
                                                     {bd.img && <img src={bd.img} className="w-full h-full object-contain" />}
