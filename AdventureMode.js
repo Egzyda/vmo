@@ -30,6 +30,8 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
     const [itemTarget, setItemTarget] = useState(null); // 道具の使用対象選択中のアイテム名
     const [floorClearInfo, setFloorClearInfo] = useState(null); // フロアボス撃破時のクリア表示 { floorId, floorName, text, reward }
     const [lastReward, setLastReward] = useState(null); // 直前の戦闘報酬 { money, exp }（クリアモーダル表示用）
+    const [battleReward, setBattleReward] = useState(null); // 通常戦闘の戦績表示 { money, exp, levelUps }
+    const battleRewardNextRef = useRef(null); // 戦績画面を閉じた後に行う遷移処理
     const [shopBuy, setShopBuy] = useState(null); // ショップ購入確認 { item, qty }
     const [boxSort, setBoxSort] = useState(null); // ボックスの並び替え基準 null|'hp'|'atk'|'def'|'spd'
     const [boxFilter, setBoxFilter] = useState(null); // ボックスの属性絞り込み null|'fire'|'water'|'grass'|'light'|'dark'|'normal'
@@ -625,9 +627,21 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 .filter((e, i, arr) => arr.findIndex(x => x.id === e.id) === i);
 
             setLearnQueue(queue);
-            if (targets.length) { setCaptureQueue(targets); setView('capture'); }
-            else if (queue.length) setView('learn');
-            else finishBattleStep(next);
+            const proceed = () => {
+                if (targets.length) { setCaptureQueue(targets); setView('capture'); }
+                else if (queue.length) setView('learn');
+                else finishBattleStep(next);
+            };
+            if (battle.isBoss) {
+                // ボス戦の報酬はFLOOR CLEARモーダル側で表示するので、ここでは挟まない
+                proceed();
+            } else {
+                // 通常戦闘は毎回、簡単な戦績画面（お金・経験値・レベルアップ）を挟む
+                setBattle(null);
+                battleRewardNextRef.current = proceed;
+                setBattleReward({ money, exp: totalExp, levelUps });
+                setView('reward');
+            }
         } else {
             // 全滅: 拠点へ強制送還。進捗・所持品は保持（SPEC方針）
             await persist(healAtBase({ ...next, dungeonRun: null }));
@@ -1023,6 +1037,33 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 adventureMode={true}
                 onExit={onBattleEnd}
             />
+        );
+    }
+
+    // ---- 通常戦闘の戦績（お金・経験値・レベルアップ） ----
+    if (view === 'reward' && battleReward) {
+        const dismiss = () => {
+            setBattleReward(null);
+            const next = battleRewardNextRef.current;
+            battleRewardNextRef.current = null;
+            if (next) next();
+        };
+        return (
+            <div className="app-container p-4 text-white flex flex-col items-center justify-center safe-bottom">
+                <div className="font-teko text-4xl tracking-widest text-yellow-300 mb-4">BATTLE WON!</div>
+                <div className="flex gap-6 text-lg mb-4">
+                    <span className="text-yellow-300 font-bold">+{battleReward.money}円</span>
+                    <span className="text-cyan-300 font-bold">+{battleReward.exp}exp</span>
+                </div>
+                {battleReward.levelUps.length > 0 && (
+                    <div className="w-full max-w-[280px] text-sm text-green-300 bg-green-950/40 border border-green-800 rounded px-3 py-2 mb-4 space-y-1">
+                        {battleReward.levelUps.map((lv, i) => (
+                            <div key={i}>🆙 {lv.name} Lv{lv.from}→<span className="font-bold">{lv.to}</span></div>
+                        ))}
+                    </div>
+                )}
+                <button onClick={dismiss} className="px-8 py-3 bg-white text-black font-bold rounded font-teko text-xl tracking-wider">次へ</button>
+            </div>
         );
     }
 
@@ -1582,7 +1623,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     <>
                         {/* 手持ち・絞り込み・ソートをスクロール領域の上部に固定。ボックスが増えて
                             下の方の項目をドラッグする時、掴む先が画面外に消えてしまうのを防ぐ */}
-                        <div className="sticky top-0 z-10 bg-slate-900 -mx-3 px-3 pb-2 mb-1 border-b border-slate-800">
+                        {/* [transform:translateZ(0)]で強制的にGPU合成レイヤーに乗せる。
+                            モバイルSafari等でsticky要素の下をスクロールした際、後ろの行が
+                            一瞬透けて見える描画チラつきの対策 */}
+                        <div className="sticky top-0 z-10 bg-slate-900 -mx-3 px-3 pb-2 mb-1 border-b border-slate-800 [transform:translateZ(0)]">
                         <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）・先頭2体が出撃時の前衛になる・⠿を掴んでドラッグで並び替え・ボックスとの入れ替えもできる</div>
                         {save.party.map((m, i) => {
                             const bd = baseOf(m.id); if (!bd) return null;
