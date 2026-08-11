@@ -1618,17 +1618,13 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                 ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3">
-                {baseTab === 'party' && (
-                    <>
-                        {/* 手持ち・絞り込み・ソートをスクロール領域の上部に固定。ボックスが増えて
-                            下の方の項目をドラッグする時、掴む先が画面外に消えてしまうのを防ぐ */}
-                        {/* 親のスクロール領域にはp-3(上下左右12px)の余白があり、stickyは
-                            スクロールコンテナの内側パディングより先には固定されない仕様のため、
-                            左右だけでなく上方向にも-mt-3で打ち消して隙間なく画面上端に固定する。
-                            そうしないと上端に12px分の隙間ができ、そこにスクロール中のボックスの
-                            行が（sticky要素に隠されず）そのまま透けて見えてしまう */}
-                        <div className="sticky top-0 z-10 bg-slate-900 -mx-3 -mt-3 px-3 pt-3 pb-2 mb-1 border-b border-slate-800">
+            {baseTab === 'party' ? (
+                // 手持ち・絞り込み・ソートは「スクロールしない固定エリア」として
+                // スクロール領域の外に出す。sticky で固定するとスクロール領域自身の
+                // padding 分だけ上に隙間が残り、そこをボックスの行が通り抜けて
+                // 見えてしまうため、スクロールする範囲をボックス一覧だけに限定している
+                <div className="flex-1 min-h-0 flex flex-col">
+                    <div className="flex-none p-3 pb-2 border-b border-slate-800">
                         <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）・先頭2体が出撃時の前衛になる・⠿を掴んでドラッグで並び替え・ボックスとの入れ替えもできる</div>
                         {save.party.map((m, i) => {
                             const bd = baseOf(m.id); if (!bd) return null;
@@ -1680,14 +1676,15 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                                 </div>
                             </>
                         )}
-                        </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto p-3 pt-2">
                         {save.box.length > 0 && (() => {
                             const boxView = save.box.map((m, i) => ({ m, i, bd: baseOf(m.id) }))
                                 .filter(x => x.bd && (!boxFilter || x.bd.type === boxFilter))
                                 .sort((a, b) => boxSort ? W.getEffectiveStats(b.m, b.bd)[boxSort] - W.getEffectiveStats(a.m, a.bd)[boxSort] : 0);
                             return (
                             <>
-                                <div className="text-[10px] text-slate-400 mt-1 mb-1">ボックス（{save.box.length}）・タップで詳細、⠿を掴んでドラッグで手持ちと入れ替え</div>
+                                <div className="text-[10px] text-slate-400 mb-1">ボックス（{save.box.length}）・タップで詳細、⠿を掴んでドラッグで手持ちと入れ替え</div>
                                 {boxView.length === 0 && <div className="text-[10px] text-slate-600">この属性の所持なし</div>}
                                 {boxView.map(({ m, i, bd }) => {
                                     const st = W.getEffectiveStats(m, bd);
@@ -1720,9 +1717,10 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                             </>
                             );
                         })()}
-                    </>
-                )}
-
+                    </div>
+                </div>
+            ) : (
+            <div className="flex-1 overflow-y-auto p-3">
                 {baseTab === 'moves' && save.party.map((m, i) => {
                     const bd = baseOf(m.id); if (!bd) return null;
                     return (
@@ -1767,6 +1765,7 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                         })
                 )}
             </div>
+            )}
 
             <div className="flex-none p-3 border-t border-slate-800 safe-bottom">
                 <button onClick={() => setBaseTab('home')}
