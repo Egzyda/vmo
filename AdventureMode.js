@@ -1623,10 +1623,12 @@ const AdventureMode = window.AdventureMode = ({ onBack, dbMonsters, dbMoves }) =
                     <>
                         {/* 手持ち・絞り込み・ソートをスクロール領域の上部に固定。ボックスが増えて
                             下の方の項目をドラッグする時、掴む先が画面外に消えてしまうのを防ぐ */}
-                        {/* [transform:translateZ(0)]で強制的にGPU合成レイヤーに乗せる。
-                            モバイルSafari等でsticky要素の下をスクロールした際、後ろの行が
-                            一瞬透けて見える描画チラつきの対策 */}
-                        <div className="sticky top-0 z-10 bg-slate-900 -mx-3 px-3 pb-2 mb-1 border-b border-slate-800 [transform:translateZ(0)]">
+                        {/* 親のスクロール領域にはp-3(上下左右12px)の余白があり、stickyは
+                            スクロールコンテナの内側パディングより先には固定されない仕様のため、
+                            左右だけでなく上方向にも-mt-3で打ち消して隙間なく画面上端に固定する。
+                            そうしないと上端に12px分の隙間ができ、そこにスクロール中のボックスの
+                            行が（sticky要素に隠されず）そのまま透けて見えてしまう */}
+                        <div className="sticky top-0 z-10 bg-slate-900 -mx-3 -mt-3 px-3 pt-3 pb-2 mb-1 border-b border-slate-800">
                         <div className="text-[10px] text-slate-400 mb-1">手持ち（最大4）・先頭2体が出撃時の前衛になる・⠿を掴んでドラッグで並び替え・ボックスとの入れ替えもできる</div>
                         {save.party.map((m, i) => {
                             const bd = baseOf(m.id); if (!bd) return null;
